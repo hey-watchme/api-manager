@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import TranscriberModule from './modules/psychology/transcriber/TranscriberModule'
+import BehaviorFeaturesModule from './modules/behavior/behavior-features/BehaviorFeaturesModule'
 
 // ページコンポーネント
 function PsychologyPage() {
@@ -33,8 +34,15 @@ function BehaviorPage() {
         <h2 className="text-xl font-semibold text-gray-900 mb-2">🏃 行動グラフ</h2>
         <p className="text-gray-600">行動パターンの検出と分析</p>
       </div>
-      <div className="text-center py-12">
-        <p className="text-gray-500">行動グラフモジュールは準備中です</p>
+      
+      {/* Behavior Features モジュール */}
+      <BehaviorFeaturesModule />
+      
+      {/* 他のモジュールは後で追加 */}
+      <div className="mt-8 grid gap-6">
+        <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          <p className="text-gray-500">🤖 Behavior Aggregator（行動分析）- 準備中</p>
+        </div>
       </div>
     </div>
   )
@@ -60,7 +68,7 @@ function Navigation() {
   
   const navItems = [
     { path: '/vibe', label: '🧠 心理グラフ', disabled: false },
-    { path: '/behavior', label: '🏃 行動グラフ', disabled: true },
+    { path: '/behavior', label: '🏃 行動グラフ', disabled: false },
     { path: '/emotion', label: '😊 感情グラフ', disabled: true }
   ]
 

@@ -29,7 +29,8 @@ stop_processes() {
 
 # プロジェクト関連のnodeプロセスを停止
 echo "🔍 プロジェクト関連プロセスを検索中..."
-PROJECT_PIDS=$(ps aux | grep "watchme-api-manager\|nodemon\|vite.*9001\|concurrently" | grep -v grep | awk '{print $2}')
+# npm run dev プロセスも含める
+PROJECT_PIDS=$(ps aux | grep -E "watchme-api-manager|nodemon|vite.*9001|concurrently|npm run dev" | grep -v grep | awk '{print $2}')
 
 if [ ! -z "$PROJECT_PIDS" ]; then
     echo "📍 プロジェクト関連プロセスを停止中..."
