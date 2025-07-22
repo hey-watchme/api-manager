@@ -130,8 +130,10 @@ function AppContent() {
 }
 
 function App() {
+  const basename = import.meta.env.PROD ? '/manager' : '/'
+  
   return (
-    <Router>
+    <Router basename={basename}>
       <AppContent />
     </Router>
   )

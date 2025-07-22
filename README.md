@@ -6,7 +6,7 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 **本番URL**: https://api.hey-watch.me/manager  
 **開発環境**: http://localhost:9001  
-**APIプロキシ**: http://localhost:3001  
+**API接続**: 直接HTTPS（CORS許可済み）  
 **GitHubリポジトリ**: https://github.com/matsumotokaya/watchme-api-manager
 
 ## 主な機能
@@ -43,8 +43,33 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 ### 設計原則
 - **モジュール分離**: 1つのAPIに対して1つの独立したモジュール
 - **疎結合**: 各モジュール間の依存関係を最小限に
+- **直接接続**: プロキシを使わず本番APIに直接HTTPS接続
 - **再利用性**: 共通コンポーネントの活用
 - **拡張性**: 新しいAPIの追加が容易
+
+### 直接HTTPS接続アーキテクチャ 🆕
+
+本APIマネージャーは、従来のプロキシサーバー方式を廃止し、**フロントエンドから本番APIへの直接HTTPS接続**を採用しています。
+
+```
+┌─────────────────────────┐      Direct HTTPS      ┌─────────────────────────┐
+│   API Manager           │ ────────────────────────│  Production APIs       │
+│   (React + Vite)        │    (CORS Enabled)       │  (api.hey-watch.me)    │
+│   localhost:9001        │                         │                        │
+├─────────────────────────┤                         ├─────────────────────────┤
+│ BehaviorFeaturesClient  │──────────────────────── │ behavior-features       │
+│ TranscriberClient       │──────────────────────── │ vibe-transcriber        │
+│ AggregatorClient        │──────────────────────── │ vibe-aggregator         │
+│ ScorerClient            │──────────────────────── │ vibe-scorer             │
+└─────────────────────────┘                         └─────────────────────────┘
+```
+
+#### ✅ メリット
+- **シンプリティ**: プロキシサーバー不要で構成が簡潔
+- **パフォーマンス**: 中間サーバーがないため高速
+- **保守性**: サーバー管理やプロキシ設定の複雑さを排除
+- **デバッグ**: ネットワークエラーの原因が特定しやすい
+- **セキュリティ**: 本番APIのCORS設定による直接的なセキュリティ制御
 
 ### ディレクトリ構造
 
@@ -60,9 +85,11 @@ api-manager/
 │   │   ├── behavior/       # 行動グラフAPI
 │   │   └── emotion/        # 感情グラフAPI
 │   ├── pages/              # ページコンポーネント
-│   ├── services/           # APIクライアント
+│   ├── services/           # APIクライアント（直接HTTPS接続）
 │   └── utils/              # ユーティリティ
-├── server.js               # Expressサーバー
+├── vite.config.js          # Vite設定ファイル
+├── start.sh               # 起動スクリプト
+├── stop.sh                # 停止スクリプト
 └── package.json
 ```
 
@@ -71,32 +98,54 @@ api-manager/
 ### フロントエンド
 - React 18.3.1
 - React Router DOM 7.7.0（ルーティング）
-- Vite 5.1.6
+- Vite 5.1.6（開発サーバー）
 - Tailwind CSS 3.4.1
 - Chart.js 4.4.9（結果可視化）
 - Lucide React（アイコン）
 
-### バックエンド
-- Express.js 4.21.2（ポート: 3001）
-- http-proxy-middleware 3.0.3（動的プロキシ設定）
-- CORS対応
-- 強化されたログ機能
+### API接続
+- Axios（HTTP クライアント）
+- 直接HTTPS接続（本番APIに直接アクセス）
+- CORS許可設定済み
+- タイムアウト制御（10分）
 
 ## クイックスタート
 
-### 簡単な起動方法
+### 🚀 起動方法（シンプル）
 
 ```bash
-# 起動（初回は自動的に依存関係もインストールされます）
+# 開発サーバー起動
 ./start.sh
 
 # 停止
 ./stop.sh
+
+# ヘルスチェック
+./health.sh
+```
+
+### 📋 各種スクリプト
+
+```bash
+# 開発サーバー起動
+./start.sh                    # Vite開発サーバー起動
+
+# 本番ビルド・プレビュー
+./build.sh                    # 本番用ビルド実行
+./preview.sh                  # 本番ビルドをプレビュー
+
+# メンテナンス
+./stop.sh                     # サーバー停止
+./health.sh                   # 動作確認
+
+# 直接コマンド（npm scripts）
+npm run dev                   # 開発サーバー
+npm run build                 # ビルド
+npm start                     # 本番プレビュー
 ```
 
 起動後、以下のURLでアクセスできます：
 - **フロントエンド**: http://localhost:9001
-- **APIプロキシ**: http://localhost:3001
 
 ### ページアクセス（React Router対応）
 - **Vibe（心理グラフ）**: http://localhost:9001/vibe
@@ -106,10 +155,11 @@ api-manager/
 ## 現在の動作状況
 
 ### 動作確認済み機能
-- ✅ API Manager正常起動
+- ✅ API Manager正常起動（Vite単体構成）
 - ✅ React Router DOM対応（URLベースナビゲーション）
-- ✅ 動的プロキシ設定（7つのAPIサービス対応）
-- ✅ 強化されたエラーハンドリングとログ機能
+- ✅ **直接HTTPS接続**（プロキシサーバー廃止）
+- ✅ CORS許可対応済み本番API接続
+- ✅ 強化されたエラーハンドリングとタイムアウト制御
 - ✅ Vibe Transcriber（音声文字起こし）完全動作
   - 処理時間: 35秒～10分（音声により変動）
   - タイムアウト: 10分に設定済み
@@ -117,8 +167,8 @@ api-manager/
   - YamNetモデルによる音響イベント検出
   - 処理時間: 2～10秒（高速処理）
   - 本番環境EC2デプロイ済み・稼働確認済み
-  - 直接HTTPS接続対応（CORS解決済み）
-- ✅ 設定ファイル自動修正機能（start.sh）
+  - 直接HTTPS接続対応（プロキシ不要）
+- ✅ シンプル起動スクリプト（フロントエンドのみ）
 - ✅ 成功・失敗メッセージの適切な表示
 
 ### 実装済みAPI
@@ -139,26 +189,32 @@ api-manager/
 - Node.js 18以上
 - npm または yarn
 
-### 詳細なインストール手順
+### 詳細なセットアップ手順
 
 ```bash
-# リポジトリのクローン
+# 1. リポジトリのクローン
 git clone git@github.com:matsumotokaya/watchme-api-manager.git
 cd watchme-api-manager
 
-# 依存関係のインストール
+# 2. 依存関係のインストール
 npm install
 
-# 環境変数の設定（必要に応じて編集）
-# .envファイルを作成し、必要な環境変数を設定
+# 3. 環境変数の確認（.envファイルは既に設定済み）
+cat .env
 
-# 開発サーバーの起動
+# 4. 開発サーバーの起動
+./start.sh
+# または
 npm run dev
 
-# 本番ビルド
+# 5. 本番ビルド（必要に応じて）
+./build.sh
+# または  
 npm run build
 
-# 本番サーバーの起動
+# 6. 本番プレビュー（必要に応じて）
+./preview.sh
+# または
 npm start
 ```
 
@@ -225,93 +281,275 @@ VITE_API_TIMEOUT=30000
 
 # または手動で確認と終了
 lsof -i :9001
-lsof -i :3001
 kill -9 <PID>
 ```
 
-#### 2. プロキシ設定エラー（vite.config.js）
-**症状**: API接続エラーが大量発生  
-**原因**: vite.config.jsのプロキシターゲットが間違っている
-
-```bash
-# 自動修正（start.shに含まれる）
-./start.sh
-
-# 手動修正の場合
-# vite.config.jsを編集して以下を確認：
-# target: 'http://localhost:3001' （正しいAPIプロキシポート）
-```
-
-#### 3. プロセスが完全に停止されない
+#### 2. プロセスが完全に停止されない
 **症状**: ./stop.shを実行してもプロセスが残存  
 **解決策**: 
 ```bash
 # 強制停止
 ./stop.sh
-ps aux | grep "watchme-api-manager\|nodemon\|vite"
+ps aux | grep "watchme-api-manager\|vite"
 kill -9 <残存プロセスのPID>
 ```
 
-#### 4. 起動確認方法
+#### 3. 起動確認方法
 ```bash
-# サーバーヘルスチェック
-curl http://localhost:3001/health
-
 # プロセス確認
-lsof -i :9001  # フロントエンド
-lsof -i :3001  # APIプロキシ
+lsof -i :9001  # Viteサーバー
 
 # ブラウザでアクセス
 # http://localhost:9001
 ```
 
-### APIへの接続エラー
-- ✅ **改善されたstart.sh**: 設定ファイルを自動チェック・修正
-- CORSの設定を確認
-- プロキシ設定が正しいか確認（3001番ポート）
-- APIサービス（https://api.hey-watch.me）が稼働しているか確認
+### API接続エラー
+- **本番APIの稼働状況を確認**: `https://api.hey-watch.me`が稼働中か確認
+- **CORS エラーの場合**: 本番API側のCORS設定を確認
+- **タイムアウトエラー**: 処理時間が長い場合は正常（特にWhisper API）
+- **ネットワーク接続**: インターネット接続とHTTPS アクセス可能性を確認
 
 ### 起動時の自動チェック機能
-改善されたstart.shには以下の機能が含まれています：
+シンプル化されたstart.shには以下の機能が含まれています：
 - 既存プロセスの自動クリーンアップ
-- ポート競合の自動解決（9001、3001番ポート）
-- vite.config.jsの設定自動修正（3001番ポート）
-- .envファイルのPORT設定自動追加
+- ポート競合の自動解決（9001番ポートのみ）
+- 依存関係の自動インストール確認
 - 起動後のヘルスチェック
 - 詳細な起動ログ表示
 
-### 新機能（v1.2.0）🆕
+### 最新機能（v2.0.0）🆕 - プロキシ廃止アーキテクチャ
+- **完全プロキシ廃止**: Express サーバーを完全削除、Vite単体構成に移行
+- **直接HTTPS接続**: フロントエンドから本番APIへの直接アクセス
+- **シンプル構成**: ポート1個（9001）のみ、複雑なプロキシ設定を排除
+- **CORS対応完了**: 本番API側でCORS許可済み
+- **高速起動**: プロキシサーバーがないため起動が高速
+- **保守性向上**: サーバー関連の依存関係削除による保守コスト削減
+
+### 実装済み機能（v1.2.0）
 - **行動グラフAPI実装**: SED音響イベント検出が完全稼働
-- **直接HTTPS接続**: CORS問題を解決した安定した本番API接続
 - **YamNet音響イベント検出**: 521種類の音響イベントを高精度で検出
 - **改善されたAPIクライアント**: 10分タイムアウト、全ステータスコード対応
 
-### 既存機能（v1.1.0）
+### 基盤機能（v1.1.0）
 - **React Router DOM**: URLベースナビゲーション、直接アクセス対応
-- **動的プロキシ設定**: 新しいAPIサービスの追加が容易
 - **強化されたログ機能**: タイムスタンプ付き詳細ログ
 - **改善されたエラー表示**: タイムアウトと接続エラーの区別
 - **10分タイムアウト**: Whisper処理の長時間実行に対応
 
 ## デプロイメント
 
-### 開発環境
+### 開発環境（直接HTTPS接続）
 ```bash
-# 開発サーバーの起動
+# 開発サーバーの起動（Viteのみ）
 npm run dev
 # アクセス: http://localhost:9001
+# API接続: 直接HTTPS（CORS許可済み）
 ```
 
-### 本番環境
-本番環境へのデプロイはCI/CDパイプラインを通じて自動化されています。
-- **本番URL**: https://api.hey-watch.me/manager
-- **デプロイ方法**: GitHubへのプッシュ後、自動デプロイ
+### 本番環境へのDockerデプロイ手順 🆕
+
+#### 1. 前提条件
+- EC2サーバーへのSSHアクセス権限
+- Dockerとdocker-composeがインストール済み
+- Nginxがインストール済み（リバースプロキシ用）
+
+#### 2. デプロイ手順
+
+##### Step 1: プロジェクトの圧縮と転送
+```bash
+# ローカル環境で実行
+# プロジェクトを圧縮（node_modules等を除外）
+tar --exclude='api-manager/node_modules' --exclude='api-manager/.git' --exclude='api-manager/dist' -czf api-manager.tar.gz api-manager/
+
+# 本番環境に転送
+scp -i ~/watchme-key.pem api-manager.tar.gz ubuntu@YOUR_EC2_IP:~/
+```
+
+##### Step 2: 本番環境でのセットアップ
+```bash
+# 本番環境にSSH接続
+ssh -i ~/watchme-key.pem ubuntu@YOUR_EC2_IP
+
+# 既存のディレクトリをバックアップ（必要に応じて）
+if [ -d "api-manager" ]; then
+    mv api-manager api-manager-backup-$(date +%Y%m%d-%H%M%S)
+fi
+
+# tarファイルを展開
+tar -xzf api-manager.tar.gz
+
+# api-managerディレクトリに移動
+cd api-manager
+
+# .envファイルが存在することを確認
+ls -la .env
+```
+
+##### Step 3: Dockerイメージのビルドと起動
+```bash
+# Dockerイメージをビルド
+sudo docker-compose build --no-cache
+
+# コンテナを起動
+sudo docker-compose up -d
+
+# コンテナの状態を確認
+sudo docker-compose ps
+
+# ログを確認
+sudo docker-compose logs --tail=50
+```
+
+##### Step 4: Nginx設定の追加
+```bash
+# Nginxの設定ファイルを編集
+sudo nano /etc/nginx/sites-available/api.hey-watch.me
+
+# 以下の設定を追加（behavior-featuresロケーションの前に）
+    # API Manager
+    location /manager/ {
+        proxy_pass http://localhost:9001/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # CORS設定
+        add_header "Access-Control-Allow-Origin" "*";
+        add_header "Access-Control-Allow-Methods" "GET, POST, OPTIONS";
+        add_header "Access-Control-Allow-Headers" "Content-Type, Authorization";
+        
+        # OPTIONSリクエストの処理
+        if ($request_method = "OPTIONS") {
+            return 204;
+        }
+    }
+
+# 設定の構文チェック
+sudo nginx -t
+
+# Nginxをリロード
+sudo systemctl reload nginx
+```
+
+##### Step 5: アクセス確認
+```bash
+# API Managerへのアクセステスト
+curl -I https://api.hey-watch.me/manager/
+
+# ブラウザでアクセス
+# https://api.hey-watch.me/manager/
+```
+
+### systemdによる自動起動設定 🆕
+
+本番環境でAPI Managerを継続的に稼働させ、サーバー再起動時も自動起動するようにsystemdサービスを設定します。
+
+#### systemdサービスファイルの作成
+```bash
+# サービスファイルを作成
+sudo tee /etc/systemd/system/watchme-api-manager.service << 'EOF'
+[Unit]
+Description=WatchMe API Manager
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=forking
+WorkingDirectory=/home/ubuntu/api-manager
+ExecStart=/usr/bin/docker-compose up -d
+ExecStop=/usr/bin/docker-compose down
+RemainAfterExit=yes
+User=root
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+#### サービスの有効化と起動
+```bash
+# systemdをリロード
+sudo systemctl daemon-reload
+
+# サービスを有効化（自動起動設定）
+sudo systemctl enable watchme-api-manager.service
+
+# 既存のDockerコンテナを停止
+cd /home/ubuntu/api-manager
+sudo docker-compose down
+
+# サービスを開始
+sudo systemctl start watchme-api-manager.service
+
+# サービスの状態を確認
+sudo systemctl status watchme-api-manager.service
+```
+
+#### systemd管理コマンド
+```bash
+# サービスの状態確認
+sudo systemctl status watchme-api-manager
+
+# サービスの停止
+sudo systemctl stop watchme-api-manager
+
+# サービスの開始
+sudo systemctl start watchme-api-manager
+
+# サービスの再起動
+sudo systemctl restart watchme-api-manager
+
+# ログの確認（リアルタイム）
+sudo journalctl -u watchme-api-manager -f
+
+# ログの確認（最新50行）
+sudo journalctl -u watchme-api-manager --no-pager | tail -50
+
+# 自動起動設定の確認
+sudo systemctl is-enabled watchme-api-manager
+```
+
+#### トラブルシューティング
+
+##### サービスが起動しない場合
+```bash
+# 詳細なエラーログを確認
+sudo journalctl -xe -u watchme-api-manager
+
+# Dockerの状態を確認
+sudo docker ps -a
+
+# docker-composeのログを直接確認
+cd /home/ubuntu/api-manager
+sudo docker-compose logs
+```
+
+##### 設定変更後の反映
+```bash
+# systemdサービスファイルを編集した場合
+sudo systemctl daemon-reload
+sudo systemctl restart watchme-api-manager
+```
+
+### 本番環境の構成 🆕
+
+- **アプリケーション**: Dockerコンテナ（Nginx + React）
+- **ポート**: 9001（内部）
+- **URL**: https://api.hey-watch.me/manager/
+- **自動起動**: systemdによる管理
+- **リバースプロキシ**: Nginx（ホストマシン）
+- **SSL**: Let's Encryptによる自動更新
 
 ## 注意事項
 
 ### APIアクセスについて
-- 管理画面がどの環境で動作していても、APIは常に本番環境（`https://api.hey-watch.me`）を参照します
+- フロントエンドから本番API（`https://api.hey-watch.me`）に直接HTTPS接続します
+- CORS設定により、localhost:9001からの接続が許可されています
 - 開発環境でも本番APIを使用するため、操作には十分注意してください
+- プロキシサーバーは使用せず、シンプルな直接接続構成です
 
 ### ⚠️ 重要：Whisper API処理時間について
 - **音声処理（Whisper API）は処理時間が非常に変動的です**
@@ -330,6 +568,81 @@ npm run dev
 ### Python実行環境
 - サーバーサイドでPythonを使用する場合は、必ず `python3` コマンドを使用してください
 - `pip` の代わりに `pip3` を使用してください
+
+## Docker関連ファイル 🆕
+
+### Dockerfile
+```dockerfile
+# Node.js 20のAlpineイメージを使用（軽量）
+FROM node:20-alpine
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# package.jsonとpackage-lock.jsonをコピー
+COPY package*.json ./
+
+# 依存関係をインストール（ビルドに必要なdevDependenciesも含む）
+RUN npm ci
+
+# アプリケーションのソースコードをコピー
+COPY . .
+
+# ビルドを実行
+RUN npm run build
+
+# ポート9001を公開
+EXPOSE 9001
+
+# Nginxイメージを使用してビルド済みファイルを配信
+FROM nginx:alpine
+COPY --from=0 /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 9001
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+### docker-compose.yml
+```yaml
+version: '3.8'
+
+services:
+  api-manager:
+    build: .
+    container_name: watchme-api-manager
+    ports:
+      - "9001:9001"
+    environment:
+      - NODE_ENV=production
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_KEY=${VITE_SUPABASE_KEY}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+      - VITE_PORT=9001
+      - VITE_API_TIMEOUT=${VITE_API_TIMEOUT}
+    restart: unless-stopped
+```
+
+### nginx.conf
+```nginx
+server {
+    listen 9001;
+    server_name localhost;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # SPAのルーティング対応
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 静的ファイルのキャッシュ設定
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
 
 ## 本番APIデプロイメント・トラブルシューティング 🆕
 
