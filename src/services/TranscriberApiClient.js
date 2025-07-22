@@ -5,7 +5,7 @@ class TranscriberApiClient extends BaseApiClient {
   constructor() {
     super({
       baseURL: '/api/vibe-transcriber',
-      timeout: 60000
+      timeout: 600000 // 10分のタイムアウト（Whisper処理は最大10分程度）
     })
   }
 

@@ -34,22 +34,30 @@ export default class BaseApiClient {
     if (error.response) {
       // サーバーからのエラーレスポンス
       throw {
-        message: error.response.data.message || 'APIエラーが発生しました',
+        message: error.response.data.message || `APIエラー (${error.response.status})`,
         status: error.response.status,
         data: error.response.data
       }
     } else if (error.request) {
-      // リクエストは送信されたがレスポンスがない
-      throw {
-        message: 'APIサーバーに接続できません',
-        status: null,
-        data: null
+      // リクエストは送信されたがレスポンスがない（タイムアウトを含む）
+      if (error.code === 'ECONNABORTED') {
+        throw {
+          message: 'タイムアウトが発生しました。処理が長時間実行中の可能性があります。データベースで処理状況を確認してください。',
+          status: 'timeout',
+          data: null
+        }
+      } else {
+        throw {
+          message: 'APIサーバーに接続できません。サーバーが起動しているか確認してください。',
+          status: 'connection_error',
+          data: null
+        }
       }
     } else {
       // その他のエラー
       throw {
         message: error.message || '予期しないエラーが発生しました',
-        status: null,
+        status: 'unknown',
         data: null
       }
     }

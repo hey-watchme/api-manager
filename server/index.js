@@ -22,87 +22,101 @@ app.use(express.json())
 // APIプロキシ設定
 const API_BASE_URL = process.env.VITE_API_BASE_URL || 'https://api.hey-watch.me'
 
-// Vibe Transcriber API プロキシ
-app.use('/api/vibe-transcriber', createProxyMiddleware({
-  target: `${API_BASE_URL}/vibe-transcriber`,
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/vibe-transcriber': ''
+// APIサービス設定
+const apiServices = [
+  {
+    path: '/api/vibe-transcriber',
+    target: 'vibe-transcriber',
+    description: 'Vibe Transcriber API プロキシ',
+    specialTimeout: 300000, // Whisper処理は70秒～10分と変動的
+    enableLogging: true // 詳細ログを有効化
   },
-  timeout: 300000, // 5分のタイムアウト（注意：Whisper処理は70秒～10分と変動的）
-  proxyTimeout: 300000, // プロキシタイムアウトも5分（タイムアウトしても実際の処理は継続中の場合が多い）
-  onProxyReq: (proxyReq, req, res) => {
-    console.log(`[Proxy] ${req.method} ${req.path} -> ${API_BASE_URL}/vibe-transcriber${req.path}`)
+  {
+    path: '/api/vibe-aggregator',
+    target: 'vibe-aggregator',
+    description: 'Vibe Aggregator API プロキシ'
   },
-  onError: (err, req, res) => {
-    console.error('[Proxy Error]', err)
-    res.status(500).json({ error: 'Proxy error', message: err.message })
+  {
+    path: '/api/vibe-scorer',
+    target: 'vibe-scorer',
+    description: 'Vibe Scorer API プロキシ'
+  },
+  {
+    path: '/api/behavior-features',
+    target: 'behavior-features',
+    description: '行動特徴抽出 API プロキシ'
+  },
+  {
+    path: '/api/behavior-aggregator',
+    target: 'behavior-aggregator',
+    description: '行動分析 API プロキシ'
+  },
+  {
+    path: '/api/emotion-features',
+    target: 'emotion-features',
+    description: '感情特徴抽出 API プロキシ'
+  },
+  {
+    path: '/api/emotion-aggregator',
+    target: 'emotion-aggregator',
+    description: '感情分析 API プロキシ'
   }
-}))
+]
 
-// Vibe Aggregator API プロキシ
-app.use('/api/vibe-aggregator', createProxyMiddleware({
-  target: `${API_BASE_URL}/vibe-aggregator`,
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/vibe-aggregator': ''
-  },
-  timeout: 300000,
-  proxyTimeout: 300000
-}))
+// 共通プロキシ設定を生成する関数
+function createApiProxy(service) {
+  const config = {
+    target: `${API_BASE_URL}/${service.target}`,
+    changeOrigin: true,
+    pathRewrite: {
+      [`^${service.path}`]: ''
+    },
+    timeout: service.specialTimeout || 300000,
+    proxyTimeout: service.specialTimeout || 300000,
+    onProxyReq: (proxyReq, req, res) => {
+      const timestamp = new Date().toISOString()
+      const logMessage = `[${timestamp}] [Proxy] ${req.method} ${req.path} -> ${API_BASE_URL}/${service.target}${req.path}`
+      console.log(logMessage)
+      
+      // 詳細ログが有効な場合は追加情報を出力
+      if (service.enableLogging) {
+        console.log(`[${timestamp}] [Proxy Detail] User-Agent: ${req.headers['user-agent'] || 'N/A'}`)
+        console.log(`[${timestamp}] [Proxy Detail] Content-Type: ${req.headers['content-type'] || 'N/A'}`)
+      }
+    },
+    onError: (err, req, res) => {
+      const timestamp = new Date().toISOString()
+      const errorInfo = {
+        timestamp,
+        service: service.target,
+        method: req.method,
+        path: req.path,
+        error: err.message,
+        code: err.code || 'UNKNOWN'
+      }
+      
+      console.error(`[${timestamp}] [Proxy Error] ${service.description}:`, errorInfo)
+      
+      // クライアントには詳細なエラー情報を返す
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Proxy error',
+          message: err.message,
+          service: service.target,
+          timestamp
+        })
+      }
+    }
+  }
+  
+  return config
+}
 
-// Vibe Scorer API プロキシ
-app.use('/api/vibe-scorer', createProxyMiddleware({
-  target: `${API_BASE_URL}/vibe-scorer`,
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/vibe-scorer': ''
-  },
-  timeout: 300000,
-  proxyTimeout: 300000
-}))
-
-// 行動グラフ API プロキシ
-app.use('/api/behavior-features', createProxyMiddleware({
-  target: `${API_BASE_URL}/behavior-features`,
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/behavior-features': ''
-  },
-  timeout: 300000,
-  proxyTimeout: 300000
-}))
-
-app.use('/api/behavior-aggregator', createProxyMiddleware({
-  target: `${API_BASE_URL}/behavior-aggregator`,
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/behavior-aggregator': ''
-  },
-  timeout: 300000,
-  proxyTimeout: 300000
-}))
-
-// 感情グラフ API プロキシ
-app.use('/api/emotion-features', createProxyMiddleware({
-  target: `${API_BASE_URL}/emotion-features`,
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/emotion-features': ''
-  },
-  timeout: 300000,
-  proxyTimeout: 300000
-}))
-
-app.use('/api/emotion-aggregator', createProxyMiddleware({
-  target: `${API_BASE_URL}/emotion-aggregator`,
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/emotion-aggregator': ''
-  },
-  timeout: 300000,
-  proxyTimeout: 300000
-}))
+// プロキシの動的設定
+apiServices.forEach(service => {
+  console.log(`Setting up ${service.description}: ${service.path} -> ${API_BASE_URL}/${service.target}`)
+  app.use(service.path, createProxyMiddleware(createApiProxy(service)))
+})
 
 // 本番環境では静的ファイルを提供
 if (process.env.NODE_ENV === 'production') {
