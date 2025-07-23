@@ -346,6 +346,372 @@ npm run dev
 # API接続: 直接HTTPS（CORS許可済み）
 ```
 
+## 🚀 ECRを使った本番デプロイ（推奨）
+
+> **2025年7月23日実装**: WatchMeプラットフォーム全APIの標準デプロイ方式
+
+### 🎯 ECRデプロイの利点
+
+- ✅ **統一性**: 全APIで同じデプロイプロセス
+- ✅ **バージョン管理**: タイムスタンプ付きイメージタグ
+- ✅ **セキュリティ**: IAMロールベースの認証
+- ✅ **スケーラビリティ**: EC2、ECS、EKSで共通利用可能
+- ✅ **CI/CD対応**: GitHub Actionsとの統合容易
+
+### 📋 前提条件
+
+#### 1. ECRリポジトリの作成
+```bash
+# AWS CLIでECRリポジトリを作成
+aws ecr create-repository \
+  --repository-name watchme-api-manager \
+  --region ap-southeast-2
+
+# 作成されるリポジトリURL例:
+# 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager
+```
+
+#### 2. EC2インスタンスの設定
+```bash
+# IAMロール「EC2-ECR-Access-Role」をEC2インスタンスにアタッチ
+# 必要な権限:
+# - AmazonEC2ContainerRegistryReadOnly
+# - または ecr:GetAuthorizationToken, ecr:BatchCheckLayerAvailability, 
+#   ecr:GetDownloadUrlForLayer, ecr:BatchGetImage
+```
+
+#### 3. Docker環境
+- Docker & Docker Compose インストール済み
+- マルチステージビルド対応Dockerfile
+
+### 🛠️ ECRデプロイ手順
+
+#### Step 1: ローカル開発・テスト
+```bash
+# 1. 開発環境でテスト
+npm run dev
+
+# 2. 本番ビルドテスト  
+npm run build
+
+# 3. Dockerビルドテスト
+docker build -t watchme-api-manager .
+docker run -p 9001:9001 watchme-api-manager
+```
+
+#### Step 2: ECRにイメージをプッシュ
+```bash
+# デプロイスクリプトを実行
+./deploy-ecr.sh
+```
+
+**deploy-ecr.sh の内容:**
+```bash
+#!/bin/bash
+set -e
+
+# 変数設定
+AWS_REGION="ap-southeast-2"
+ECR_REPOSITORY="754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager"
+IMAGE_TAG="latest"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+echo "=== ECRへのデプロイを開始します ==="
+
+# ECRにログイン
+aws ecr get-login-password --region $AWS_REGION | \
+  docker login --username AWS --password-stdin $ECR_REPOSITORY
+
+# Dockerイメージをビルド
+docker build -t watchme-api-manager .
+
+# ECR用のタグを付与
+docker tag watchme-api-manager:latest $ECR_REPOSITORY:$IMAGE_TAG
+docker tag watchme-api-manager:latest $ECR_REPOSITORY:$TIMESTAMP
+
+# ECRにプッシュ
+docker push $ECR_REPOSITORY:$IMAGE_TAG
+docker push $ECR_REPOSITORY:$TIMESTAMP
+
+echo "=== デプロイが完了しました ==="
+echo "ECRリポジトリ: $ECR_REPOSITORY"
+echo "イメージタグ: $IMAGE_TAG および $TIMESTAMP"
+```
+
+#### Step 3: 本番環境でデプロイ
+```bash
+# 本番環境起動スクリプトを実行
+./run-prod.sh
+```
+
+**run-prod.sh の内容:**
+```bash
+#!/bin/bash
+set -e
+
+ECR_REPOSITORY="754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager"
+AWS_REGION="ap-southeast-2"
+
+echo "=== watchme-api-manager 本番環境起動 ==="
+
+# ECRから最新イメージをプル
+aws ecr get-login-password --region $AWS_REGION | \
+  docker login --username AWS --password-stdin $ECR_REPOSITORY
+docker pull $ECR_REPOSITORY:latest
+
+# 既存のコンテナを停止・削除
+docker-compose -f docker-compose.prod.yml down || true
+
+# 本番環境でコンテナを起動
+docker-compose -f docker-compose.prod.yml up -d
+
+echo "=== 起動完了 ==="
+echo "アプリケーションURL: http://localhost:9001"
+```
+
+#### Step 4: Nginx設定（外部公開）
+```bash
+# Nginx設定ファイルに追加
+sudo nano /etc/nginx/sites-available/api.hey-watch.me
+
+# 以下の設定を追加:
+location /manager/ {
+    proxy_pass http://localhost:9001/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    
+    # CORS設定
+    add_header "Access-Control-Allow-Origin" "*";
+    add_header "Access-Control-Allow-Methods" "GET, POST, OPTIONS";
+    add_header "Access-Control-Allow-Headers" "Content-Type, Authorization";
+    
+    if ($request_method = "OPTIONS") {
+        return 204;
+    }
+}
+
+# 設定テストと適用
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 📁 必要なファイル構成
+
+```
+project-root/
+├── Dockerfile                 # マルチステージビルド対応
+├── docker-compose.prod.yml    # 本番環境用Compose設定
+├── deploy-ecr.sh              # ECRプッシュスクリプト
+├── run-prod.sh                # 本番環境起動スクリプト
+├── .env.example               # 環境変数テンプレート
+├── nginx-config.txt           # Nginx設定リファレンス
+└── package.json               # Node.js依存関係
+```
+
+### 🔧 設定ファイル詳細
+
+#### docker-compose.prod.yml
+```yaml
+version: '3.8'
+
+services:
+  api-manager:
+    image: 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager:latest
+    container_name: watchme-api-manager-prod
+    ports:
+      - "9001:9001"
+    environment:
+      - NODE_ENV=production
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_KEY=${VITE_SUPABASE_KEY}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+      - VITE_PORT=9001
+      - VITE_API_TIMEOUT=${VITE_API_TIMEOUT}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - watchme-network
+
+networks:
+  watchme-network:
+    driver: bridge
+```
+
+#### Dockerfile（マルチステージビルド）
+```dockerfile
+# Node.js 20のAlpineイメージを使用（軽量）
+FROM node:20-alpine
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# package.jsonとpackage-lock.jsonをコピー
+COPY package*.json ./
+
+# 依存関係をインストール
+RUN npm ci
+
+# アプリケーションのソースコードをコピー
+COPY . .
+
+# ビルドを実行
+RUN npm run build
+
+# ポート9001を公開
+EXPOSE 9001
+
+# Nginxイメージを使用してビルド済みファイルを配信
+FROM nginx:alpine
+COPY --from=0 /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 9001
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+### 🚨 トラブルシューティング
+
+#### よくある問題と解決方法
+
+1. **AWS CLI認証エラー**
+```bash
+# 問題: Unable to locate credentials
+# 解決: EC2にIAMロールをアタッチ
+aws sts get-caller-identity  # 認証確認
+```
+
+2. **ECRログインエラー**
+```bash
+# 問題: Error: Cannot perform an interactive login
+# 解決: AWS CLI v2を公式インストーラでインストール
+curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+```
+
+3. **コンテナ起動失敗**
+```bash
+# ログ確認
+docker logs watchme-api-manager-prod
+
+# コンテナ状態確認
+docker ps -a | grep manager
+
+# 強制再起動
+docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### 📊 運用監視
+
+#### ヘルスチェック
+```bash
+# アプリケーション応答確認
+curl -f https://api.hey-watch.me/manager/
+
+# コンテナ状態確認
+docker ps | grep watchme-api-manager-prod
+
+# リソース使用量確認
+docker stats watchme-api-manager-prod
+```
+
+#### ログ管理
+```bash
+# リアルタイムログ
+docker logs -f watchme-api-manager-prod
+
+# 最新50行
+docker logs watchme-api-manager-prod --tail 50
+
+# 日時指定
+docker logs watchme-api-manager-prod --since="2025-07-23T00:00:00"
+```
+
+### 🔄 CI/CD統合（今後の拡張用）
+
+#### GitHub Actions例
+```yaml
+name: ECR Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-southeast-2
+    
+    - name: Build and push to ECR
+      run: |
+        ./deploy-ecr.sh
+    
+    - name: Deploy to EC2
+      run: |
+        # SSH経由でEC2にデプロイ
+        ssh -i ${{ secrets.EC2_KEY }} ubuntu@3.24.16.82 './run-prod.sh'
+```
+
+### 📈 スケーリング考慮事項
+
+#### 水平スケーリング
+- **ロードバランサー**: ALB + 複数EC2インスタンス
+- **Auto Scaling**: EC2 Auto Scaling Group
+- **ECS**: Fargate or EC2ベースのクラスター
+
+#### 垂直スケーリング
+- **リソース調整**: CPUとメモリの最適化
+- **Dockerリソース制限**: docker-compose.yml での制限設定
+
+---
+
+## ⚡ 他のAPIへの適用手順
+
+> **このECRデプロイプロセスは、WatchMeプラットフォームの全API（Python FastAPI等）で標準化可能**
+
+### 1. 新しいAPIプロジェクトでの適用
+```bash
+# 1. ECRリポジトリ作成
+aws ecr create-repository --repository-name watchme-new-api --region ap-southeast-2
+
+# 2. 必要ファイルをコピー
+cp deploy-ecr.sh ../new-api-project/
+cp run-prod.sh ../new-api-project/  
+cp docker-compose.prod.yml ../new-api-project/
+
+# 3. 設定を新しいAPIに合わせて修正
+# - ECRリポジトリURL
+# - ポート番号
+# - 環境変数
+
+# 4. 同じデプロイプロセスを実行
+./deploy-ecr.sh
+./run-prod.sh
+```
+
+### 2. 設定のカスタマイズポイント
+- **ECRリポジトリURL**: 各API専用に作成
+- **ポート番号**: API毎に異なるポート（8001, 8002, etc.）
+- **Nginxロケーション**: `/new-api/` 等の専用パス
+- **環境変数**: API固有の設定値
+
+これにより、**全てのWatchMe APIが統一されたECRベースデプロイ**で管理可能になります。
+
 ### 本番環境へのDockerデプロイ手順 🆕
 
 #### 1. 前提条件

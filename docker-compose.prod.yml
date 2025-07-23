@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  api-manager:
+    image: 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager:latest
+    container_name: watchme-api-manager-prod
+    ports:
+      - "9001:9001"
+    environment:
+      - NODE_ENV=production
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_KEY=${VITE_SUPABASE_KEY}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+      - VITE_PORT=9001
+      - VITE_API_TIMEOUT=${VITE_API_TIMEOUT}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - watchme-network
+
+networks:
+  watchme-network:
+    driver: bridge

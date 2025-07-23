@@ -1,0 +1,26 @@
+# Nginx設定 - API Manager用
+# /etc/nginx/sites-available/api.hey-watch.me に追加する設定
+
+# API Manager - behavior-featuresロケーションの前に追加してください
+location /manager/ {
+    proxy_pass http://localhost:9001/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    
+    # CORS設定
+    add_header "Access-Control-Allow-Origin" "*";
+    add_header "Access-Control-Allow-Methods" "GET, POST, OPTIONS";
+    add_header "Access-Control-Allow-Headers" "Content-Type, Authorization";
+    
+    # OPTIONSリクエストの処理
+    if ($request_method = "OPTIONS") {
+        return 204;
+    }
+    
+    # タイムアウト設定
+    proxy_connect_timeout 60s;
+    proxy_send_timeout 60s;
+    proxy_read_timeout 60s;
+}

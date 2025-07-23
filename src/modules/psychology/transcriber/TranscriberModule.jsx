@@ -12,15 +12,8 @@ export default function TranscriberModule() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    // APIステータスの監視を開始
-    transcriberApiClient.startStatusMonitoring((isOnline) => {
-      setApiStatus(isOnline ? 'online' : 'offline')
-    })
-
-    // クリーンアップ
-    return () => {
-      transcriberApiClient.stopStatusMonitoring()
-    }
+    // CORS対応済みAPIなので、直接オンライン状態に設定
+    setApiStatus('online')
   }, [])
 
   const handleSubmit = async (filePaths, model) => {

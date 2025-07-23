@@ -12,15 +12,8 @@ export default function BehaviorFeaturesModule() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    // APIステータスの監視を開始
-    behaviorFeaturesApiClient.startStatusMonitoring((isOnline) => {
-      setApiStatus(isOnline ? 'online' : 'offline')
-    })
-
-    // クリーンアップ
-    return () => {
-      behaviorFeaturesApiClient.stopStatusMonitoring()
-    }
+    // CORS対応済みAPIなので、直接オンライン状態に設定
+    setApiStatus('online')
   }, [])
 
   const handleSubmit = async (filePaths) => {

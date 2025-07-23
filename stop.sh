@@ -1,51 +1,23 @@
 #!/bin/bash
 
-# API Manager 停止スクリプト
-
-# スクリプトのあるディレクトリに移動
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR"
-
 echo "🛑 WatchMe API Manager を停止しています..."
 
-# 関連プロセスを特定して停止
-stop_processes() {
-    local port=$1
-    local service_name=$2
-    
-    if lsof -i :$port > /dev/null 2>&1; then
-        echo "📍 $service_name (ポート$port) を停止中..."
-        lsof -ti :$port | xargs kill -9 2>/dev/null
-        sleep 1
-        
-        # 停止確認
-        if ! lsof -i :$port > /dev/null 2>&1; then
-            echo "✅ $service_name を停止しました"
-        else
-            echo "⚠️  $service_name の停止に失敗しました"
-        fi
-    fi
-}
-
-# プロジェクト関連のnodeプロセスを停止
-echo "🔍 プロジェクト関連プロセスを検索中..."
-# npm run dev プロセスも含める
-PROJECT_PIDS=$(ps aux | grep -E "watchme-api-manager|nodemon|vite.*9001|concurrently|npm run dev" | grep -v grep | awk '{print $2}')
-
-if [ ! -z "$PROJECT_PIDS" ]; then
-    echo "📍 プロジェクト関連プロセスを停止中..."
-    echo "$PROJECT_PIDS" | xargs kill -9 2>/dev/null
+# Viteプロセス（9001番ポート）を停止
+PIDS=$(lsof -ti:9001 2>/dev/null || true)
+if [ ! -z "$PIDS" ]; then
+    echo "📍 Viteサーバー (9001) を停止中..."
+    echo "$PIDS" | xargs kill -TERM 2>/dev/null || true
     sleep 1
+    echo "$PIDS" | xargs kill -9 2>/dev/null || true
 fi
 
-# ポート別停止
-stop_processes 9001 "フロントエンド"
-stop_processes 3001 "APIプロキシ"
-
-# 追加クリーンアップ: 残存するnodemonプロセス
-if pgrep -f "nodemon.*api-manager" > /dev/null; then
-    echo "📍 残存するnodemonプロセスを停止中..."
-    pkill -f "nodemon.*api-manager" 2>/dev/null
+# 関連プロセスを停止
+npm_pids=$(ps aux | grep -E 'vite.*--port.*9001|npm.*dev' | grep -v grep | awk '{print $2}')
+if [ ! -z "$npm_pids" ]; then
+    echo "📍 関連プロセスを停止中..."
+    echo "$npm_pids" | xargs kill -TERM 2>/dev/null || true
+    sleep 1
+    echo "$npm_pids" | xargs kill -9 2>/dev/null || true
 fi
 
-echo "✅ API Manager が停止しました。"
+echo "✅ 停止完了"
