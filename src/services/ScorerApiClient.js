@@ -9,15 +9,11 @@ class ScorerApiClient extends BaseApiClient {
   }
 
   async analyzeVibeGraph(deviceId, date) {
-    try {
-      const response = await this.api.post('/analyze-vibegraph-supabase', {
-        device_id: deviceId,
-        date: date
-      })
-      return response.data
-    } catch (error) {
-      throw error
-    }
+    const response = await this.api.post('/analyze-vibegraph-supabase', {
+      device_id: deviceId,
+      date: date
+    })
+    return response.data
   }
 }
 

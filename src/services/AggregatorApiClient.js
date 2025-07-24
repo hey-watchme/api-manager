@@ -9,17 +9,13 @@ class AggregatorApiClient extends BaseApiClient {
   }
 
   async generateMoodPrompt(deviceId, date) {
-    try {
-      const response = await this.api.get('/generate-mood-prompt-supabase', {
-        params: {
-          device_id: deviceId,
-          date: date
-        }
-      })
-      return response.data
-    } catch (error) {
-      throw error
-    }
+    const response = await this.api.get('/generate-mood-prompt-supabase', {
+      params: {
+        device_id: deviceId,
+        date: date
+      }
+    })
+    return response.data
   }
 }
 
