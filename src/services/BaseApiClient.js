@@ -5,11 +5,29 @@ export default class BaseApiClient {
     this.baseURL = config.baseURL
     this.timeout = config.timeout || 30000
     this.statusCheckInterval = null
+    
+    // axiosインスタンスを作成
+    this.api = axios.create({
+      baseURL: this.baseURL,
+      timeout: this.timeout,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    // レスポンスインターセプターでエラーハンドリングを統一
+    this.api.interceptors.response.use(
+      response => response,
+      error => {
+        this.handleError(error)
+      }
+    )
   }
 
   async checkStatus() {
-    // 個別のAPIクライアントでオーバーライドする
-    throw new Error('checkStatus method must be implemented by subclass')
+    // CORS設定済みなので、常にオンラインとして返す
+    // 実際のAPI接続は処理実行時にチェックされる
+    return true
   }
 
   startStatusMonitoring(callback, interval = 30000) {

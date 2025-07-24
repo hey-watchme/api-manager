@@ -1,6 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import TranscriberModule from './modules/psychology/transcriber/TranscriberModule'
+import AggregatorModule from './modules/psychology/aggregator/AggregatorModule'
+import ScorerModule from './modules/psychology/scorer/ScorerModule'
 import BehaviorFeaturesModule from './modules/behavior/behavior-features/BehaviorFeaturesModule'
+import BehaviorAggregatorModule from './modules/behavior/aggregator/BehaviorAggregatorModule'
+import EmotionPage from './pages/EmotionPage'
 
 // ページコンポーネント
 function PsychologyPage() {
@@ -14,14 +18,14 @@ function PsychologyPage() {
       {/* Transcriber モジュール */}
       <TranscriberModule />
       
-      {/* 他のモジュールは後で追加 */}
-      <div className="mt-8 grid gap-6">
-        <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-          <p className="text-gray-500">📝 Aggregator（プロンプト生成）- 準備中</p>
-        </div>
-        <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-          <p className="text-gray-500">🤖 Scorer（スコアリング）- 準備中</p>
-        </div>
+      {/* Aggregator モジュール */}
+      <div className="mt-8">
+        <AggregatorModule />
+      </div>
+      
+      {/* Scorer モジュール */}
+      <div className="mt-8">
+        <ScorerModule />
       </div>
     </div>
   )
@@ -38,25 +42,9 @@ function BehaviorPage() {
       {/* Behavior Features モジュール */}
       <BehaviorFeaturesModule />
       
-      {/* 他のモジュールは後で追加 */}
-      <div className="mt-8 grid gap-6">
-        <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-          <p className="text-gray-500">🤖 Behavior Aggregator（行動分析）- 準備中</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function EmotionPage() {
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">😊 感情グラフ</h2>
-        <p className="text-gray-600">音声から感情の時系列変化を分析</p>
-      </div>
-      <div className="text-center py-12">
-        <p className="text-gray-500">感情グラフモジュールは準備中です</p>
+      {/* Behavior Aggregator モジュール */}
+      <div className="mt-8">
+        <BehaviorAggregatorModule />
       </div>
     </div>
   )
@@ -69,7 +57,7 @@ function Navigation() {
   const navItems = [
     { path: '/vibe', label: '🧠 心理グラフ', disabled: false },
     { path: '/behavior', label: '🏃 行動グラフ', disabled: false },
-    { path: '/emotion', label: '😊 感情グラフ', disabled: true }
+    { path: '/emotion', label: '😊 感情グラフ', disabled: false }
   ]
 
   return (

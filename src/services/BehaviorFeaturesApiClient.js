@@ -1,4 +1,3 @@
-import axios from 'axios'
 import BaseApiClient from './BaseApiClient'
 
 class BehaviorFeaturesApiClient extends BaseApiClient {
@@ -9,27 +8,11 @@ class BehaviorFeaturesApiClient extends BaseApiClient {
     })
   }
 
-  async checkStatus() {
-    // CORS設定済みなので、常にオンラインとして返す
-    // 実際のAPI接続は処理実行時にチェックされる
-    return true
-  }
-
   async fetchAndProcessPaths(filePaths) {
-    try {
-      const response = await axios.post(
-        `${this.baseURL}/fetch-and-process-paths`,
-        {
-          file_paths: filePaths
-        },
-        {
-          timeout: this.timeout
-        }
-      )
-      return response.data
-    } catch (error) {
-      this.handleError(error)
-    }
+    const response = await this.api.post('/fetch-and-process-paths', {
+      file_paths: filePaths
+    })
+    return response.data
   }
 }
 
