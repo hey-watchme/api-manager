@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import Button from '../../../components/common/Button'
+import FetchPendingFilesButton from '../../../components/common/FetchPendingFilesButton'
+import AudioFilesService from '../../../services/AudioFilesService'
 
 export default function TranscriberForm({ onSubmit, loading, disabled }) {
   const [filePaths, setFilePaths] = useState('')
@@ -25,9 +27,18 @@ export default function TranscriberForm({ onSubmit, loading, disabled }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="filePaths" className="block text-sm font-medium text-gray-700 mb-2">
-          ファイルパス
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label htmlFor="filePaths" className="block text-sm font-medium text-gray-700">
+            ファイルパス
+          </label>
+          <FetchPendingFilesButton
+            onFetch={setFilePaths}
+            fetchFunction={() => AudioFilesService.getPendingAudioFiles()}
+            disabled={disabled}
+            loading={loading}
+          />
+        </div>
+        
         <textarea
           id="filePaths"
           value={filePaths}
@@ -38,7 +49,7 @@ export default function TranscriberForm({ onSubmit, loading, disabled }) {
           disabled={disabled || loading}
         />
         <p className="mt-1 text-xs text-gray-500">
-          複数のファイルパスを改行で区切って入力できます
+          複数のファイルパスを改行で区切って入力できます。不要なパスは削除できます。
         </p>
         <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
           <p className="text-xs text-yellow-800">

@@ -51,4 +51,6 @@ Thumbs.db
 .npm
 
 # Optional eslint cache
-.eslintcache
+.eslintcache*.pid
+*.log
+start-background.sh
