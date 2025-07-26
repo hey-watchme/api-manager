@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
-import TranscriberModule from './modules/psychology/transcriber/TranscriberModule'
+import WhisperTranscriberModule from './modules/psychology/whisper-transcriber/WhisperTranscriberModule'
+import AzureTranscriberModule from './modules/psychology/azure-transcriber/AzureTranscriberModule'
 import AggregatorModule from './modules/psychology/aggregator/AggregatorModule'
 import ScorerModule from './modules/psychology/scorer/ScorerModule'
 import BehaviorFeaturesModule from './modules/behavior/behavior-features/BehaviorFeaturesModule'
@@ -15,8 +16,13 @@ function PsychologyPage() {
         <p className="text-gray-600">音声データから心理状態を分析・可視化</p>
       </div>
       
-      {/* Transcriber モジュール */}
-      <TranscriberModule />
+      {/* Whisper Transcriber モジュール */}
+      <WhisperTranscriberModule />
+      
+      {/* Azure Transcriber モジュール */}
+      <div className="mt-8">
+        <AzureTranscriberModule />
+      </div>
       
       {/* Aggregator モジュール */}
       <div className="mt-8">

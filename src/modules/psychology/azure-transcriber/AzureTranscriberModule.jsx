@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import Card from '../../../components/common/Card'
-import TranscriberForm from './TranscriberForm'
-import TranscriberResults from './TranscriberResults'
+import AzureTranscriberForm from './AzureTranscriberForm'
+import AzureTranscriberResults from './AzureTranscriberResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
-import transcriberApiClient from '../../../services/TranscriberApiClient'
+import azureTranscriberApiClient from '../../../services/AzureTranscriberApiClient'
 
-export default function TranscriberModule() {
+export default function AzureTranscriberModule() {
   const [apiStatus, setApiStatus] = useState('checking')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState(null)
@@ -22,7 +22,7 @@ export default function TranscriberModule() {
     setResults(null)
 
     try {
-      const response = await transcriberApiClient.transcribe(filePaths, model)
+      const response = await azureTranscriberApiClient.transcribe(filePaths, model)
       setResults(response)
     } catch (err) {
       setError(err.message || 'エラーが発生しました')
@@ -36,9 +36,9 @@ export default function TranscriberModule() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">🎤 Transcriber（音声文字起こし）</h3>
+            <h3 className="text-lg font-semibold text-gray-900">🎤 Azure Transcriber（Azure音声文字起こし）</h3>
             <p className="text-sm text-gray-600 mt-1">
-              指定したファイルパスの音声データを文字起こしして、データベースに保存します。
+              Azure Speech Serviceを使用して音声データを文字起こしし、データベースに保存します。
             </p>
           </div>
           <ApiStatusIndicator status={apiStatus} />
@@ -48,13 +48,13 @@ export default function TranscriberModule() {
           <p className="text-xs text-gray-600">
             <span className="font-medium">APIエンドポイント:</span>{' '}
             <code className="bg-white px-1 py-0.5 rounded">
-              https://api.hey-watch.me/vibe-transcriber/fetch-and-transcribe
+              https://api.hey-watch.me/vibe-transcriber-v2/fetch-and-transcribe
             </code>
           </p>
         </div>
       </div>
 
-      <TranscriberForm 
+      <AzureTranscriberForm 
         onSubmit={handleSubmit}
         loading={loading}
         disabled={apiStatus !== 'online'}
@@ -68,7 +68,7 @@ export default function TranscriberModule() {
 
       {results && (
         <div className="mt-6">
-          <TranscriberResults results={results} />
+          <AzureTranscriberResults results={results} />
         </div>
       )}
     </Card>

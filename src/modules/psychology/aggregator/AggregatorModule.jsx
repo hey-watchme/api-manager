@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AggregatorForm from './AggregatorForm'
 import AggregatorResults from './AggregatorResults'
 import Card from '../../../components/common/Card'
@@ -6,9 +6,15 @@ import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
 import aggregatorApiClient from '../../../services/AggregatorApiClient'
 
 function AggregatorModule() {
+  const [apiStatus, setApiStatus] = useState('checking')
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    // CORS対応済みAPIなので、直接オンライン状態に設定
+    setApiStatus('online')
+  }, [])
 
   const handleSubmit = async (data) => {
     setLoading(true)
@@ -26,18 +32,45 @@ function AggregatorModule() {
   }
 
   return (
-    <Card
-      title="📝 Vibe Aggregator（プロンプト生成）"
-      description="心理分析用のプロンプトを生成します"
-      statusIndicator={<ApiStatusIndicator apiClient={aggregatorApiClient} />}
-    >
-      <AggregatorForm onSubmit={handleSubmit} loading={loading} />
+    <Card className="p-6">
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">📝 Vibe Aggregator（プロンプト生成）</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              心理分析用のプロンプトを生成します。
+            </p>
+          </div>
+          <ApiStatusIndicator status={apiStatus} />
+        </div>
+        
+        <div className="bg-gray-50 rounded-md p-3">
+          <p className="text-xs text-gray-600">
+            <span className="font-medium">APIエンドポイント:</span>{' '}
+            <code className="bg-white px-1 py-0.5 rounded">
+              https://api.hey-watch.me/vibe-aggregator/generate-mood-prompt-supabase
+            </code>
+          </p>
+        </div>
+      </div>
+
+      <AggregatorForm 
+        onSubmit={handleSubmit} 
+        loading={loading}
+        disabled={apiStatus !== 'online'}
+      />
+      
       {error && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-800">{error}</p>
+        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
-      {result && <AggregatorResults result={result} />}
+      
+      {result && (
+        <div className="mt-6">
+          <AggregatorResults result={result} />
+        </div>
+      )}
     </Card>
   )
 }

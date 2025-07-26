@@ -1,31 +1,31 @@
 import { useState, useEffect } from 'react'
-import ScorerForm from './ScorerForm'
-import ScorerResults from './ScorerResults'
 import Card from '../../../components/common/Card'
+import WhisperTranscriberForm from './WhisperTranscriberForm'
+import WhisperTranscriberResults from './WhisperTranscriberResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
-import scorerApiClient from '../../../services/ScorerApiClient'
+import whisperTranscriberApiClient from '../../../services/WhisperTranscriberApiClient'
 
-function ScorerModule() {
+export default function WhisperTranscriberModule() {
   const [apiStatus, setApiStatus] = useState('checking')
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [results, setResults] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     // CORS対応済みAPIなので、直接オンライン状態に設定
     setApiStatus('online')
   }, [])
 
-  const handleSubmit = async (data) => {
+  const handleSubmit = async (filePaths, model) => {
     setLoading(true)
     setError(null)
-    setResult(null)
+    setResults(null)
 
     try {
-      const response = await scorerApiClient.analyzeVibeGraph(data.deviceId, data.date)
-      setResult(response)
-    } catch (error) {
-      setError(error.message || 'スコアリングに失敗しました')
+      const response = await whisperTranscriberApiClient.transcribe(filePaths, model)
+      setResults(response)
+    } catch (err) {
+      setError(err.message || 'エラーが発生しました')
     } finally {
       setLoading(false)
     }
@@ -36,9 +36,9 @@ function ScorerModule() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">🤖 Vibe Scorer（スコアリング）</h3>
+            <h3 className="text-lg font-semibold text-gray-900">🎤 Whisper Transcriber（OpenAI音声文字起こし）</h3>
             <p className="text-sm text-gray-600 mt-1">
-              ChatGPTを使用して心理状態のスコアを算出します。
+              OpenAI Whisperを使用して音声データを文字起こしし、データベースに保存します。
             </p>
           </div>
           <ApiStatusIndicator status={apiStatus} />
@@ -48,31 +48,29 @@ function ScorerModule() {
           <p className="text-xs text-gray-600">
             <span className="font-medium">APIエンドポイント:</span>{' '}
             <code className="bg-white px-1 py-0.5 rounded">
-              https://api.hey-watch.me/vibe-scorer/analyze-vibegraph-supabase
+              https://api.hey-watch.me/vibe-transcriber/fetch-and-transcribe
             </code>
           </p>
         </div>
       </div>
 
-      <ScorerForm 
-        onSubmit={handleSubmit} 
+      <WhisperTranscriberForm 
+        onSubmit={handleSubmit}
         loading={loading}
         disabled={apiStatus !== 'online'}
       />
-      
+
       {error && (
         <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
           <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
-      
-      {result && (
+
+      {results && (
         <div className="mt-6">
-          <ScorerResults result={result} />
+          <WhisperTranscriberResults results={results} />
         </div>
       )}
     </Card>
   )
 }
-
-export default ScorerModule

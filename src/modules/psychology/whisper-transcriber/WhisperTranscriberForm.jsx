@@ -3,7 +3,7 @@ import Button from '../../../components/common/Button'
 import FetchPendingFilesButton from '../../../components/common/FetchPendingFilesButton'
 import AudioFilesService from '../../../services/AudioFilesService'
 
-export default function TranscriberForm({ onSubmit, loading, disabled }) {
+export default function WhisperTranscriberForm({ onSubmit, loading, disabled }) {
   const [filePaths, setFilePaths] = useState('')
   const [model, setModel] = useState('base')
 
@@ -54,7 +54,7 @@ export default function TranscriberForm({ onSubmit, loading, disabled }) {
         <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
           <p className="text-xs text-yellow-800">
             <span className="font-medium">⚠️ 重要：</span>
-            Whisper処理は70秒～10分程度かかります。タイムアウトエラーが表示されても、
+            OpenAI Whisper処理は約2-3秒/分程度かかります。タイムアウトエラーが表示されても、
             実際の処理は成功している場合がほとんどです。処理状況はデータベースで確認してください。
           </p>
         </div>
@@ -72,10 +72,13 @@ export default function TranscriberForm({ onSubmit, loading, disabled }) {
           disabled={disabled || loading}
         >
           <option value="base">base（標準）</option>
-          <option value="small">small（軽量）</option>
-          <option value="medium">medium（中程度）</option>
-          <option value="large">large（高精度）</option>
+          <option value="small" disabled>small（軽量）- 本番環境では使用不可</option>
+          <option value="medium" disabled>medium（中程度）- 本番環境では使用不可</option>
+          <option value="large" disabled>large（高精度）- 本番環境では使用不可</option>
         </select>
+        <p className="mt-1 text-xs text-gray-500">
+          本番環境（t4g.small, 2GB RAM）ではbaseモデルのみ使用可能です。
+        </p>
       </div>
 
       <div className="flex justify-end">
@@ -84,7 +87,7 @@ export default function TranscriberForm({ onSubmit, loading, disabled }) {
           loading={loading}
           disabled={disabled}
         >
-          🎤 Transcriber処理開始
+          🎤 Whisper Transcriber処理開始
         </Button>
       </div>
     </form>

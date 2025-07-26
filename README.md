@@ -18,9 +18,11 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 ## 管理対象API
 
-### 1. 心理グラフ(Vibe)API（3つ）
-- **音声書き起こしAPI (Vibe Transcriber)**: 音声データをテキストに変換
+### 1. 心理グラフ(Vibe)API（4つ）
+- **OpenAI音声書き起こしAPI (Whisper Transcriber)**: OpenAI Whisperで音声をテキストに変換
   - エンドポイント: `https://api.hey-watch.me/vibe-transcriber/fetch-and-transcribe`
+- **Azure音声書き起こしAPI (Azure Transcriber)**: Azure Speech Serviceで音声をテキストに変換
+  - エンドポイント: `https://api.hey-watch.me/vibe-transcriber-v2/fetch-and-transcribe`
 - **プロンプト生成API (Vibe Aggregator)**: 心理分析用のプロンプトを生成
   - エンドポイント: `https://api.hey-watch.me/vibe-aggregator/generate-mood-prompt-supabase`
 - **スコアリングAPI (Vibe Scorer)**: 心理状態のスコアを算出
@@ -158,37 +160,44 @@ npm start                     # 本番プレビュー
 
 #### ✅ 完全動作確認済みのAPI
 
-1. **🎤 Vibe Transcriber（音声文字起こし）** - 心理グラフ
+1. **🎤 Whisper Transcriber（OpenAI音声文字起こし）** - 心理グラフ
    - エンドポイント: `https://api.hey-watch.me/vibe-transcriber/fetch-and-transcribe`
-   - 処理時間: 35秒～10分（音声により変動）
-   - タイムアウト: 10分に設定済み
+   - エンジン: OpenAI Whisper（baseモデル）
+   - 処理時間: 約2-3秒/分
+   - 特徴: 本番環境でbaseモデルのみ利用可能（t4g.small, 2GB RAM制約）
 
-2. **📝 Vibe Aggregator（プロンプト生成）** - 心理グラフ
+2. **🎤 Azure Transcriber（Azure音声文字起こし）** - 心理グラフ
+   - エンドポイント: `https://api.hey-watch.me/vibe-transcriber-v2/fetch-and-transcribe`
+   - エンジン: Azure Speech Service
+   - 処理時間: 高速処理（クラウドベース）
+   - 注意: 本番環境でAzureアクセス問題あり（認識結果が空になる場合がある）
+
+3. **📝 Vibe Aggregator（プロンプト生成）** - 心理グラフ
    - エンドポイント: `https://api.hey-watch.me/vibe-aggregator/generate-mood-prompt-supabase`
    - デバイスIDと日付を指定して処理
    - 処理時間: 通常1分以内
 
-3. **🤖 Vibe Scorer（スコアリング）** - 心理グラフ
+4. **🤖 Vibe Scorer（スコアリング）** - 心理グラフ
    - エンドポイント: `https://api.hey-watch.me/vibe-scorer/analyze-vibegraph-supabase`
    - ChatGPTによる心理状態分析
    - 平均スコア、ポジティブ/ネガティブ/ニュートラル時間を算出
 
-4. **🔊 Behavior Features（行動特徴抽出）** - 行動グラフ
+5. **🔊 Behavior Features（行動特徴抽出）** - 行動グラフ
    - エンドポイント: `https://api.hey-watch.me/behavior-features/fetch-and-process-paths`
    - YamNetモデルによる521種類の音響イベント検出
    - 処理時間: 2～10秒（高速処理）
 
-5. **📊 Behavior Aggregator（行動分析）** - 行動グラフ
+6. **📊 Behavior Aggregator（行動分析）** - 行動グラフ
    - エンドポイント: `https://api.hey-watch.me/behavior-aggregator/analysis/sed`
    - 行動パターンの統計分析
    - 時系列での行動変化を評価
 
-6. **😊 Emotion Features（感情特徴抽出）** - 感情グラフ
+7. **😊 Emotion Features（感情特徴抽出）** - 感情グラフ
    - エンドポイント: `https://api.hey-watch.me/emotion-features/process/emotion-features`
    - OpenSMILEによる25種類の感情特徴量抽出
    - 1秒ごとの詳細な感情分析
 
-7. **📈 Emotion Aggregator（感情分析）** - 感情グラフ
+8. **📈 Emotion Aggregator（感情分析）** - 感情グラフ
    - エンドポイント: `https://api.hey-watch.me/emotion-aggregator/analyze/opensmile-aggregator`
    - 感情の時系列変化パターン分析
    - 統計情報と感情トレンドの生成
@@ -201,6 +210,43 @@ npm start                     # 本番プレビュー
 - ✅ 強化されたエラーハンドリングとタイムアウト制御
 - ✅ シンプル起動スクリプト（フロントエンドのみ）
 - ✅ 成功・失敗メッセージの適切な表示
+
+## Git 運用ルール（ブランチベース開発フロー）
+
+このプロジェクトでは、**ブランチベースの開発フロー**を採用しています。  
+main ブランチで直接開発せず、以下のルールに従って作業を進めてください。
+
+---
+
+### 🔹 運用ルール概要
+
+1. `main` ブランチは常に安定した状態を保ちます（リリース可能な状態）。
+2. 開発作業はすべて **`feature/xxx` ブランチ** で行ってください。
+3. 作業が完了したら、GitHub上で Pull Request（PR）を作成し、差分を確認した上で `main` にマージしてください。
+4. **1人開発の場合でも、必ずPRを経由して `main` にマージしてください**（レビューは不要、自分で確認＆マージOK）。
+
+---
+
+### 🔧 ブランチ運用の手順
+
+#### 1. `main` を最新化して作業ブランチを作成
+```bash
+git checkout main
+git pull origin main
+git checkout -b feature/機能名
+```
+
+#### 2. 作業内容をコミット
+```bash
+git add .
+git commit -m "変更内容の説明"
+```
+
+#### 3. リモートにプッシュしてPR作成
+```bash
+git push origin feature/機能名
+# GitHub上でPull Requestを作成
+```
 
 ## セットアップ
 
@@ -336,8 +382,15 @@ lsof -i :9001  # Viteサーバー
 - 起動後のヘルスチェック
 - 詳細な起動ログ表示
 
-### 最新機能（v3.0.0）🎉 - 全API完全稼働
-- **全7つのAPI完全統合**: 心理・行動・感情グラフの全APIが稼働
+### 最新機能（v4.0.0）🎉 - 2つのTranscriberセクション追加（2025-07-26）
+- **🎤 Whisper & Azure Transcriber分離**: 1つのTranscriberから2つの独立したセクションに分割
+- **未処理ファイル自動取得機能**: データベース（audio_files）から未処理ファイルを自動取得
+- **共通コンポーネント化**: FetchPendingFilesButtonとして再利用可能なコンポーネント作成
+- **ステータス別取得**: transcriptions_status, behavior_features_status, emotion_features_status対応
+- **手動ファイルパス編集**: 自動取得後に不要なパスを削除・編集可能
+
+### v3.0.0機能 - 全API完全稼働
+- **全8つのAPI完全統合**: 心理（Whisper + Azure）・行動・感情グラフの全APIが稼働
 - **統一されたUI/UX**: adminアプリケーションと同じ操作感
 - **デバイスID＋日付指定方式**: 心理グラフAPIで採用
 - **リアルタイム結果表示**: 各APIの処理結果を即座に確認可能
