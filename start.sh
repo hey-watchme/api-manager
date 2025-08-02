@@ -19,8 +19,24 @@ echo "🌟 開発サーバーを起動します..."
 echo "📍 URL: http://localhost:9001"
 echo "🔗 API: https://api.hey-watch.me (直接接続)"
 echo ""
-echo "🛑 終了するには Ctrl+C を押してください"
-echo ""
 
-# Vite起動
-npm run dev
+# バックグラウンドでVite起動
+nohup npm run dev > api-manager.log 2>&1 &
+PID=$!
+
+# 起動待機
+echo "⏳ サーバー起動中..."
+sleep 3
+
+# 起動確認
+if lsof -i :9001 > /dev/null 2>&1; then
+    echo "✅ API Manager が正常に起動しました！"
+    echo "📄 ログファイル: api-manager.log"
+    echo "🛑 停止するには: ./stop.sh"
+    echo ""
+    echo "🌐 ブラウザで http://localhost:9001 にアクセスしてください"
+else
+    echo "❌ 起動に失敗しました"
+    echo "📄 詳細はログを確認してください: tail -f api-manager.log"
+    exit 1
+fi

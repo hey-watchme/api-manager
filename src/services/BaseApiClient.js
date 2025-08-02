@@ -51,8 +51,16 @@ export default class BaseApiClient {
   handleError(error) {
     if (error.response) {
       // サーバーからのエラーレスポンス
+      let errorMessage = error.response.data.message || `APIエラー (${error.response.status})`;
+      
+      // 500エラーの場合、詳細情報があれば追加
+      if (error.response.status === 500 && error.response.data.error_details) {
+        const details = error.response.data.error_details;
+        errorMessage = `${errorMessage}\n\nエラータイプ: ${details.error_type}\nエラー詳細: ${details.error_message}\n処理ステップ: ${details.processing_step}`;
+      }
+      
       throw {
-        message: error.response.data.message || `APIエラー (${error.response.status})`,
+        message: errorMessage,
         status: error.response.status,
         data: error.response.data
       }
