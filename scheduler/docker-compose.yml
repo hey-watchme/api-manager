@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  scheduler:
+    build: .
+    container_name: watchme-scheduler
+    ports:
+      - "8015:8015"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    volumes:
+      - scheduler-config:/app/config
+      - scheduler-logs:/var/log/scheduler
+      - /etc/cron.d:/etc/cron.d:rw
+    restart: unless-stopped
+    networks:
+      - watchme-network
+
+volumes:
+  scheduler-config:
+  scheduler-logs:
+
+networks:
+  watchme-network:
+    external: true

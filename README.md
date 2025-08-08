@@ -382,7 +382,225 @@ lsof -i :9001  # Viteサーバー
 - 起動後のヘルスチェック
 - 詳細な起動ログ表示
 
-### 最新機能（v4.0.0）🎉 - 2つのTranscriberセクション追加（2025-07-26）
+### 🤖 スケジューラー機能（v5.0.0）🎉 - 自動処理システム実装（2025-08-05）
+
+### 概要
+APIマネージャーが**WatchMe Process Manager**に進化しました。手動でのAPI実行だけでなく、**自動処理スケジューラー**機能を統合し、真の意味での処理管理システムとなりました。
+
+### アーキテクチャ：デュアルサーバー構成
+
+```
+┌─────────────────────────────┐      HTTP API      ┌─────────────────────────────┐
+│   APIマネージャー             │ ─────────────────── │  スケジューラーAPI          │
+│   (React + Vite)            │   /api/scheduler    │  (FastAPI + Python)        │
+│   ポート: 9001              │                     │  ポート: 8015              │
+├─────────────────────────────┤                     ├─────────────────────────────┤
+│ ・心理グラフUI管理           │                     │ ・自動処理設定管理          │
+│ ・行動グラフUI管理           │                     │ ・cron設定動的生成          │
+│ ・感情グラフUI管理           │                     │ ・実行履歴管理              │
+│ ・手動処理実行              │                     │ ・EC2でのスケジューリング    │
+│ ・自動処理設定UI            │                     │ ・Supabase連携              │
+└─────────────────────────────┘                     └─────────────────────────────┘
+               │                                                        │
+               │ 直接HTTPS                                              │ HTTP
+               ▼                                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        本番API群 (api.hey-watch.me)                            │
+│  ・whisper (8001)  ・behavior-features  ・emotion-features  など7つのAPI        │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 🏗️ 構成詳細
+
+#### 1. APIマネージャー（フロントエンド）
+- **技術**: React 18.3.1 + Vite 5.1.6
+- **ポート**: 9001
+- **役割**: 
+  - 7つのAPIの手動実行UI
+  - 自動処理の設定・監視UI
+  - 実行結果の表示
+  - スケジューラーAPIとの連携
+
+#### 2. スケジューラーAPI（バックエンド）
+- **技術**: FastAPI + Python 3.12
+- **ポート**: 8015
+- **配置**: EC2上の独立したサービス
+- **役割**:
+  - 自動処理設定の管理（JSON設定ファイル）
+  - cron設定の動的生成・更新
+  - 各APIの実行履歴・ステータス管理
+  - 未処理ファイルの取得・処理実行
+
+### 🔄 動作フロー
+
+#### 自動処理設定時：
+1. **フロントエンド**: ユーザーがWhisper APIの自動処理を「3時間間隔でON」に設定
+2. **スケジューラーAPI**: 設定をJSONファイルに保存
+3. **cron生成**: `0 */3 * * * ubuntu /home/ubuntu/scheduler/run-api-process.py whisper`
+4. **cron更新**: `/etc/cron.d/watchme-scheduler`に設定を反映
+
+#### 自動処理実行時：
+1. **cron**: 指定時刻に`run-api-process.py whisper`を実行
+2. **処理スクリプト**: Supabaseから未処理ファイル取得
+3. **API実行**: `http://localhost:8001/fetch-and-transcribe`に未処理ファイルを送信
+4. **ログ記録**: 処理結果を`/var/log/scheduler/scheduler-whisper.log`に記録
+
+### 📁 ファイル構成
+
+```
+api-manager/
+├── src/                              # React フロントエンド
+│   ├── components/scheduler/         # スケジューラーUI
+│   │   └── AutoProcessControl.jsx   # 自動処理制御コンポーネント
+│   └── modules/psychology/whisper-transcriber/
+│       └── WhisperTranscriberModule.jsx  # 手動+自動処理統合UI
+├── scheduler-api-server.py           # スケジューラーAPI（FastAPI）
+├── run-api-process.py               # 実際の処理実行スクリプト
+├── deploy-scheduler.sh              # EC2デプロイスクリプト
+└── vite.config.js                  # プロキシ設定含む
+```
+
+### 🚀 デプロイメント構成
+
+#### ローカル開発環境：
+```bash
+# APIマネージャー（フロントエンド）
+npm run dev  # ポート9001
+
+# スケジューラーAPI（EC2）
+./deploy-scheduler.sh  # ポート8015でEC2にデプロイ
+```
+
+#### 本番環境（EC2）：
+```bash
+# EC2上で動作する2つのサービス
+├── Whisper API (ポート8001) - 既存
+├── スケジューラーAPI (ポート8015) - 新規追加
+└── 各種Python処理スクリプト (/home/ubuntu/scheduler/)
+```
+
+### 🔧 運用方法
+
+#### 1. Dockerコンテナ構成
+- **APIマネージャー**: 本番時はNginxコンテナ（静的ファイル配信）
+- **スケジューラーAPI**: Python仮想環境で直接実行（systemd化可能）
+
+#### 2. Git/ECRリポジトリ構成
+- **Git**: 単一リポジトリ（api-manager）内にフロントエンド+スケジューラーAPI
+- **ECR**: 
+  - フロントエンド用: `watchme-api-manager`（既存）
+  - スケジューラーAPI用: 独立デプロイ（Docker化時に分離検討）
+
+#### 3. 設定管理
+- **フロントエンド設定**: vite.config.js、package.json
+- **スケジューラー設定**: `/home/ubuntu/scheduler/config.json`
+- **cron設定**: `/etc/cron.d/watchme-scheduler`（動的生成）
+
+### 💡 なぜこの構成にしたか
+
+#### **単一リポジトリにした理由**：
+1. **機能的統合**: 自動処理はAPIマネージャーの本来の目的
+2. **開発効率**: フロントエンドとバックエンドの同期開発
+3. **設定共有**: 同じAPIエンドポイント・設定を参照
+
+#### **2つのサーバーにした理由**：
+1. **技術特性**: React（フロントエンド）とPython（バックエンド）の最適化
+2. **権限分離**: cron管理はサーバーサイドで必要
+3. **スケーラビリティ**: それぞれ独立してスケール可能
+
+### 🎯 対象API（自動化可能）
+
+| API名 | 処理内容 | 推奨間隔 | 実装状況 |
+|-------|---------|----------|----------|
+| **Whisper Transcriber** | 音声文字起こし | 3時間 | ✅ 実装済み |
+| Azure Transcriber | 音声文字起こし | 6時間 | 🔄 次期対応 |
+| Behavior Features | 行動特徴抽出 | 6時間 | 🔄 次期対応 |
+| Emotion Features | 感情特徴抽出 | 6時間 | 🔄 次期対応 |
+| Psychology Aggregator | 心理分析 | 12時間 | 🔄 次期対応 |
+| Behavior Aggregator | 行動分析 | 12時間 | 🔄 次期対応 |
+| Psychology Scorer | スコアリング | 24時間 | 🔄 次期対応 |
+
+### 📊 実装パターン
+
+#### パターン1: 未処理ファイル処理型（Whisper実装済み）
+```python
+# 1. 未処理ファイル取得
+pending_files = get_pending_files("whisper")  # transcriptions_status = 'pending'
+
+# 2. API実行
+response = requests.post(
+    "http://localhost:8001/fetch-and-transcribe",
+    json={"file_paths": pending_files, "model": "base"}
+)
+```
+
+#### パターン2: 日付指定処理型（ChatGPT系API向け）
+```python
+# 1. 特定日付・デバイスID指定
+response = requests.post(
+    "https://api.hey-watch.me/vibe-aggregator/generate-mood-prompt-supabase",
+    json={"device_id": "xxx", "date": "2025-08-05"}
+)
+```
+
+### 🚨 重要：スケジューラーAPIのNginx設定について
+
+#### よくある問題：スケジューラー機能が404エラーになる
+
+**症状**：
+```
+GET https://api.hey-watch.me/scheduler/status/whisper 404 (Not Found)
+POST https://api.hey-watch.me/scheduler/toggle/whisper 404 (Not Found)
+```
+
+**原因**：
+スケジューラーAPIは`http://localhost:8015/api/scheduler/`でサービスを提供していますが、Nginxの設定が正しくない場合、パスの転送が失敗します。
+
+**解決方法**：
+EC2のNginx設定（`/etc/nginx/sites-available/api.hey-watch.me`）に以下の設定が必要です：
+
+```nginx
+# Scheduler API
+location /scheduler/ {
+    # 重要：proxy_passの末尾のパスに注意！
+    proxy_pass http://localhost:8015/api/scheduler/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    
+    # CORS設定
+    add_header "Access-Control-Allow-Origin" "*";
+    add_header "Access-Control-Allow-Methods" "GET, POST, OPTIONS";
+    add_header "Access-Control-Allow-Headers" "Content-Type, Authorization";
+}
+```
+
+#### 理解すべき重要なポイント
+
+1. **`location`と`proxy_pass`の関係**：
+   - `location /scheduler/` = 「お店の看板」（外部公開URL）
+   - `proxy_pass http://localhost:8015/api/scheduler/` = 「厨房の入口」（内部転送先）
+   - `/scheduler/`の部分が`/api/scheduler/`に**置き換えられる**（追加されるのではない！）
+
+2. **実際の動作例**：
+   - ユーザーがアクセス: `https://api.hey-watch.me/scheduler/status/whisper`
+   - Nginxが転送: `http://localhost:8015/api/scheduler/status/whisper`
+
+3. **デバッグ方法**：
+   ```bash
+   # スケジューラーAPIが起動しているか確認
+   sudo lsof -i:8015
+   
+   # サーバー内部から直接APIを確認
+   curl http://localhost:8015/                      # ルートパス確認
+   curl http://localhost:8015/api/scheduler/status/test  # 実際のエンドポイント確認
+   
+   # Nginx設定を確認
+   sudo grep -A5 "location /scheduler/" /etc/nginx/sites-available/api.hey-watch.me
+   ```
+
+## 最新機能（v4.0.0）🎉 - 2つのTranscriberセクション追加（2025-07-26）
 - **🎤 Whisper & Azure Transcriber分離**: 1つのTranscriberから2つの独立したセクションに分割
 - **未処理ファイル自動取得機能**: データベース（audio_files）から未処理ファイルを自動取得
 - **共通コンポーネント化**: FetchPendingFilesButtonとして再利用可能なコンポーネント作成
@@ -873,6 +1091,35 @@ server {
 ```
 
 ## トラブルシューティング補足
+
+### 2層のNginx構造を理解する（最重要）
+
+APIマネージャーには**2つのNginx**が存在し、それぞれ異なる役割を持っています：
+
+```
+[インターネット]
+    ↓
+[外側のNginx] (ホストOS上)
+    ├→ /scheduler/ → localhost:8015/api/scheduler/ (スケジューラーAPI)
+    └→ /manager/ → localhost:9001/ (APIマネージャーコンテナ)
+                    ↓
+                [内側のNginx] (コンテナ内)
+                    └→ React静的ファイル配信
+```
+
+#### よくある混乱ポイント
+
+1. **修正が反映されない問題**
+   - 原因：コンテナ内のNginxがViteの`base: '/manager/'`設定と合っていない
+   - 解決：コンテナ内の`nginx.conf`で`/manager/`パスを適切に処理
+
+2. **404エラーが出る問題**
+   - 原因：外側のNginxの`proxy_pass`設定が間違っている
+   - 解決：スケジューラーAPIの実際のパス構造を確認して設定を修正
+
+3. **どちらのNginxを修正すべきか分からない**
+   - API接続の問題 → 外側のNginx（`/etc/nginx/sites-available/api.hey-watch.me`）
+   - 静的ファイル配信の問題 → 内側のNginx（コンテナ内の`nginx.conf`）
 
 ### 過去の事例から学んだ重要なポイント
 

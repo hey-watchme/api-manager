@@ -3,6 +3,7 @@ import Card from '../../../components/common/Card'
 import WhisperTranscriberForm from './WhisperTranscriberForm'
 import WhisperTranscriberResults from './WhisperTranscriberResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
+import AutoProcessControl from '../../../components/scheduler/AutoProcessControl'
 import whisperTranscriberApiClient from '../../../services/WhisperTranscriberApiClient'
 
 export default function WhisperTranscriberModule() {
@@ -54,23 +55,37 @@ export default function WhisperTranscriberModule() {
         </div>
       </div>
 
-      <WhisperTranscriberForm 
-        onSubmit={handleSubmit}
-        loading={loading}
-        disabled={apiStatus !== 'online'}
-      />
+      {/* 自動処理セクション */}
+      <div className="mb-8">
+        <AutoProcessControl 
+          apiName="whisper"
+          displayName="Whisper Transcriber"
+          disabled={apiStatus !== 'online'}
+        />
+      </div>
 
-      {error && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-800">{error}</p>
-        </div>
-      )}
+      {/* 手動処理セクション */}
+      <div className="border-t pt-6">
+        <h4 className="text-md font-medium text-gray-900 mb-4">🔧 手動処理</h4>
+        
+        <WhisperTranscriberForm 
+          onSubmit={handleSubmit}
+          loading={loading}
+          disabled={apiStatus !== 'online'}
+        />
 
-      {results && (
-        <div className="mt-6">
-          <WhisperTranscriberResults results={results} />
-        </div>
-      )}
+        {error && (
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+
+        {results && (
+          <div className="mt-6">
+            <WhisperTranscriberResults results={results} />
+          </div>
+        )}
+      </div>
     </Card>
   )
 }

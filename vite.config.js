@@ -7,6 +7,12 @@ export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? '/manager/' : '/',
   server: {
     host: '0.0.0.0',
-    port: 9001
+    port: 9001,
+    proxy: {
+      '/api/scheduler': {
+        target: 'http://localhost:8015',
+        changeOrigin: true
+      }
+    }
   }
 })

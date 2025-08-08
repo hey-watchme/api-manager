@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  scheduler:
+    image: 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager-scheduler:latest
+    container_name: watchme-scheduler-prod
+    ports:
+      - "8015:8015"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    volumes:
+      - scheduler-config:/app/config
+      - scheduler-logs:/var/log/scheduler
+      - /etc/cron.d:/etc/cron.d:rw
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8015/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - watchme-network
+
+volumes:
+  scheduler-config:
+  scheduler-logs:
+
+networks:
+  watchme-network:
+    external: true
