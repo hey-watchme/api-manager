@@ -33,7 +33,22 @@ API_CONFIGS = {
         "model": "base",
         "display_name": "Whisper Transcriber"
     },
-    # 他のAPIは後で追加
+    "behavior-features": {
+        # 行動特徴抽出APIのコンテナ名とポートを指定
+        "endpoint": "http://watchme-behavior-yamnet:8004/fetch-and-process-paths",
+        # Supabaseで未処理ファイルを検索するためのカラム名
+        "status_column": "behavior_features_status",
+        "model": None, # このAPIにモデル指定が不要な場合はNone
+        "display_name": "行動特徴抽出"
+    },
+    "emotion-features": {
+        # 感情特徴抽出APIのコンテナ名とポートを指定
+        "endpoint": "http://watchme-emotion-opensmile:8003/process/emotion-features",
+        # Supabaseで未処理ファイルを検索するためのカラム名
+        "status_column": "emotion_features_status",
+        "model": None, # このAPIにモデル指定が不要な場合はNone
+        "display_name": "感情特徴抽出"
+    }
 }
 
 def get_supabase_client() -> Client:
@@ -78,9 +93,12 @@ def call_api(api_name: str, file_paths: list) -> bool:
         config = API_CONFIGS[api_name]
         
         request_data = {
-            "file_paths": file_paths,
-            "model": config.get("model", "base")
+            "file_paths": file_paths
         }
+        
+        # modelが指定されている場合のみ追加
+        if config.get("model") is not None:
+            request_data["model"] = config["model"]
         
         logger.info(f"{api_name}: API呼び出し開始 ({len(file_paths)}件)")
         
