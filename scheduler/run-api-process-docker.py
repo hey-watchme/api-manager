@@ -35,7 +35,7 @@ API_CONFIGS = {
     },
     "behavior-features": {
         # 行動特徴抽出APIのコンテナ名とポートを指定
-        "endpoint": "http://watchme-behavior-yamnet:8004/fetch-and-process-paths",
+        "endpoint": "http://api_sed_v1-sed_api-1:8004/fetch-and-process-paths",
         # Supabaseで未処理ファイルを検索するためのカラム名
         "status_column": "behavior_features_status",
         "model": None, # このAPIにモデル指定が不要な場合はNone
@@ -43,7 +43,7 @@ API_CONFIGS = {
     },
     "emotion-features": {
         # 感情特徴抽出APIのコンテナ名とポートを指定
-        "endpoint": "http://watchme-emotion-opensmile:8003/process/emotion-features",
+        "endpoint": "http://opensmile-api:8011/process/emotion-features",
         # Supabaseで未処理ファイルを検索するためのカラム名
         "status_column": "emotion_features_status",
         "model": None, # このAPIにモデル指定が不要な場合はNone

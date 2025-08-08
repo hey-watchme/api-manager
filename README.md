@@ -12,16 +12,27 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 ✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です
 
+#### 🔗 **コンテナ名とAPI対応表（重要）**
+スケジューラーが各APIと通信する際の**正確なコンテナ名**とポート番号：
+
+| API種類 | UI上の名前 | **実際のコンテナ名** | ポート | エンドポイント |
+|---------|-----------|---------------------|--------|----------------|
+| **[心理] Whisper書き起こし** | `whisper` | `api-transcriber` | 8001 | `/fetch-and-transcribe` |
+| **[心理] プロンプト生成** | `vibe-aggregator` | `api_gen_prompt_mood_chart` | 8009 | `/process-batch` |
+| **[心理] スコアリング** | `vibe-scorer` | `api-gpt-v1` | 8002 | `/analyze-batch` |
+| **[行動] 音声イベント検出** | `behavior-features` | `api_sed_v1-sed_api-1` | 8004 | `/fetch-and-process-paths` |
+| **[感情] 音声特徴量抽出** | `emotion-features` | `opensmile-api` | 8011 | `/process/emotion-features` |
+
+**⚠️ 注意**: UIに表示される名前と実際のコンテナ名は異なります！
+
 #### 自動化済みAPI
 現在、以下のAPIの自動実行がAPI Managerで管理されています：
 
 - **[心理] Whisper書き起こし** - ✅ 実装済み・動作確認済み
 - **[心理] プロンプト生成** - ✅ 実装済み・動作確認済み  
 - **[心理] スコアリング** - ✅ 実装済み・動作確認済み
-- **[行動] 音声イベント検出** - 🔄 設定中
-- **[行動] 音声イベント集計** - 🔄 設定中
-- **[感情] 音声特徴量抽出** - 🔄 設定中
-- **[感情] 感情スコア集計** - 🔄 設定中
+- **[行動] 音声イベント検出** - ✅ 実装済み・動作確認済み
+- **[感情] 音声特徴量抽出** - ✅ 実装済み・動作確認済み
 
 ---
 
@@ -119,13 +130,128 @@ docker network connect watchme-network watchme-api-manager-prod
 docker network connect watchme-network watchme-scheduler-prod
 ```
 
-#### デプロイ時の注意点
+#### ⚠️ **デプロイ時の重要な注意点**
 
-1.  **環境変数の設定**: EC2サーバーの `/home/ubuntu/watchme-api-manager/.env` ファイルに適切な環境変数を設定する必要があります。
-2.  **ネットワーク接続**: 各コンテナは `watchme-network` に接続して、他のサービスと通信できるようにする必要があります。
-3.  **ヘルスチェック**: デプロイ後は必ず以下のエンドポイントで動作確認を行ってください：
-    - フロントエンド: https://api.hey-watch.me/manager/
-    - スケジューラーAPI: https://api.hey-watch.me/scheduler/status/whisper
+##### 1. **環境変数の設定** 
+**問題**: `.env` ファイルが古いAPIキーを使用していると `Invalid API key` エラーが発生します。
+```bash
+# ❌ エラー例: 2025-08-08 15:00:03,045 - ERROR - whisper: 未処理ファイル取得エラー: {'message': 'Invalid API key'}
+
+# ✅ 解決方法: 他のサービスと同じ最新のAPIキーを使用
+grep SUPABASE_KEY /home/ubuntu/watchme-vault-api-docker/.env
+# この値を /home/ubuntu/watchme-api-manager/.env にコピーする
+```
+
+##### 2. **🚨 コンテナ間通信の設定（最重要）**
+**問題**: スケジューラーが他のAPIを呼び出せない場合、必ずこの問題です。
+```bash
+# ❌ エラー例: Failed to resolve 'api-transcriber' 
+# ❌ エラー例: Failed to resolve 'watchme-behavior-yamnet'
+
+# ✅ 解決方法: 全てのコンテナをwatchme-networkに接続
+# 必須の接続先コンテナ一覧:
+docker network connect watchme-network api-transcriber          # 心理グラフ用
+docker network connect watchme-network api_gen_prompt_mood_chart # 心理グラフ用  
+docker network connect watchme-network api-gpt-v1               # 心理グラフ用
+docker network connect watchme-network api_sed_v1-sed_api-1     # 行動グラフ用
+docker network connect watchme-network opensmile-api            # 感情グラフ用
+```
+
+##### 3. **正しいコンテナ名の確認方法**
+**問題**: `watchme-behavior-yamnet` のような名前で接続しようとしてもコンテナが存在しません。
+```bash
+# ✅ 実際のコンテナ名を確認する方法:
+docker ps --format "{{.Names}}" | grep -E "(api|watchme|vibe|mood|behavior|emotion)"
+
+# 出力例:
+# api_sed_v1-sed_api-1     <- これが行動グラフAPI（ポート8004）
+# opensmile-api            <- これが感情グラフAPI（ポート8011）
+# api-transcriber          <- これが心理グラフAPI（ポート8001）
+```
+
+##### 4. **動作確認方法**
+```bash
+# 1. ネットワーク接続テスト
+docker exec watchme-scheduler-prod ping -c 1 api-transcriber
+docker exec watchme-scheduler-prod ping -c 1 api_sed_v1-sed_api-1  
+docker exec watchme-scheduler-prod ping -c 1 opensmile-api
+
+# 2. 手動実行テスト
+docker exec watchme-scheduler-prod python /app/run-api-process-docker.py whisper
+docker exec watchme-scheduler-prod python /app/run-api-process-docker.py behavior-features
+
+# 3. WebUI確認
+curl https://api.hey-watch.me/manager/
+curl https://api.hey-watch.me/scheduler/status/whisper
+```
+
+##### 5. **トラブルシューティングチェックリスト**
+デプロイ後に問題が発生した場合、必ず以下を順番に確認してください：
+
+```bash
+# ✅ チェック1: コンテナが起動しているか？
+docker ps | grep -E "watchme-scheduler|watchme-api-manager"
+
+# ✅ チェック2: 環境変数は正しいか？
+docker exec watchme-scheduler-prod env | grep SUPABASE_KEY
+
+# ✅ チェック3: ネットワークに接続されているか？
+docker network inspect watchme-network | grep -A 3 "watchme-scheduler-prod"
+
+# ✅ チェック4: 対象APIコンテナは動作しているか？
+docker ps | grep -E "api-transcriber|api_sed_v1-sed_api-1|opensmile-api"
+
+# ✅ チェック5: pingは通るか？
+docker exec watchme-scheduler-prod ping -c 1 api-transcriber
+```
+
+#### 🤖 **自動化スクリプト**
+毎回手動で設定するのを避けるため、以下のスクリプトをEC2サーバーで実行してください：
+
+```bash
+#!/bin/bash
+# 全コンテナをwatchme-networkに接続するスクリプト
+# ファイル名: /home/ubuntu/connect-all-containers.sh
+
+echo "=== 全コンテナをwatchme-networkに接続中 ==="
+
+# 必須コンテナ一覧
+CONTAINERS=(
+  "watchme-scheduler-prod"
+  "watchme-api-manager-prod"
+  "api-transcriber"
+  "api_gen_prompt_mood_chart"
+  "api-gpt-v1"
+  "api_sed_v1-sed_api-1"
+  "opensmile-api"
+  "watchme-vault-api"
+  "watchme-web-prod"
+  "watchme-admin"
+  "api-sed-aggregator"
+)
+
+for container in "${CONTAINERS[@]}"; do
+  echo "接続中: $container"
+  docker network connect watchme-network "$container" 2>/dev/null && echo "✅ $container" || echo "⚠️ $container (既に接続済みまたはエラー)"
+done
+
+echo ""
+echo "=== 接続テスト ==="
+echo "スケジューラーから主要APIへのpingテスト:"
+docker exec watchme-scheduler-prod ping -c 1 api-transcriber >/dev/null 2>&1 && echo "✅ api-transcriber" || echo "❌ api-transcriber"
+docker exec watchme-scheduler-prod ping -c 1 api_sed_v1-sed_api-1 >/dev/null 2>&1 && echo "✅ api_sed_v1-sed_api-1" || echo "❌ api_sed_v1-sed_api-1"
+docker exec watchme-scheduler-prod ping -c 1 opensmile-api >/dev/null 2>&1 && echo "✅ opensmile-api" || echo "❌ opensmile-api"
+
+echo ""
+echo "=== 完了 ==="
+```
+
+**実行方法**:
+```bash
+# スクリプトを作成して実行権限を付与
+chmod +x /home/ubuntu/connect-all-containers.sh
+/home/ubuntu/connect-all-containers.sh
+```
 
 ### サーバー設定 (Nginx / systemd) 【重要】
 
