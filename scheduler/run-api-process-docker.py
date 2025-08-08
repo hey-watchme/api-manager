@@ -24,9 +24,11 @@ SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
 # API設定
+# 注意: Dockerコンテナ間通信では、コンテナ名を使用する
+# watchme-networkで接続されたコンテナは、コンテナ名で通信可能
 API_CONFIGS = {
     "whisper": {
-        "endpoint": "http://host.docker.internal:8001/fetch-and-transcribe",
+        "endpoint": "http://api-transcriber:8001/fetch-and-transcribe",
         "status_column": "transcriptions_status",
         "model": "base",
         "display_name": "Whisper Transcriber"

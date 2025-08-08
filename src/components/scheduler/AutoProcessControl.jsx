@@ -54,20 +54,12 @@ export default function AutoProcessControl({
   const handleIntervalChange = async (newInterval) => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/scheduler/toggle/${apiName}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          ...autoStatus,
-          interval: parseInt(newInterval)
-        })
+      await schedulerApiClient.toggle(apiName, {
+        ...autoStatus,
+        interval: parseInt(newInterval)
       })
       
-      if (response.ok) {
-        await loadAutoStatus()
-      } else {
-        throw new Error('間隔設定の更新に失敗しました')
-      }
+      await loadAutoStatus() // 最新状況を再取得
     } catch (error) {
       console.error('間隔変更エラー:', error)
       alert('設定の更新に失敗しました: ' + error.message)
@@ -85,9 +77,9 @@ export default function AutoProcessControl({
           </h5>
           <p className="text-sm text-blue-600">
             {autoStatus.enabled ? '有効' : '無効'} | 
-            間隔: {autoStatus.interval}時間
+            0時起点で{autoStatus.interval}時間ごと（JST）
             {autoStatus.lastRun && (
-              <> | 最終実行: {new Date(autoStatus.lastRun).toLocaleString()}</>
+              <> | 最終実行: {new Date(autoStatus.lastRun).toLocaleString('ja-JP')}</>
             )}
           </p>
         </div>
@@ -127,11 +119,13 @@ export default function AutoProcessControl({
       )}
       
       <div className="text-xs text-blue-600">
-        成功: {autoStatus.successCount}回 | 
-        エラー: {autoStatus.errorCount}回
+        処理実績 - 成功: {autoStatus.successCount}回 | エラー: {autoStatus.errorCount}回
         {autoStatus.nextRun && (
-          <> | 次回実行: {new Date(autoStatus.nextRun).toLocaleString()}</>
+          <> | 次回実行: {new Date(autoStatus.nextRun).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</>
         )}
+      </div>
+      <div className="text-xs text-gray-500 mt-1">
+        ※ 自動処理の成功/エラー回数は、実際にスケジュール実行された処理の結果を表示しています
       </div>
     </div>
   )

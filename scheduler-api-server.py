@@ -111,8 +111,22 @@ def get_last_execution_info(api_name: str) -> Dict:
     }
 
 def calculate_next_run(interval_hours: int) -> str:
-    """次回実行時刻計算"""
-    next_run = datetime.now() + timedelta(hours=interval_hours)
+    """次回実行時刻計算（cron式に基づく実際の実行時刻）"""
+    now = datetime.now()
+    # 0時起点でN時間ごとの実行時刻を計算
+    # 例：3時間間隔なら 0:00, 3:00, 6:00, 9:00, 12:00, 15:00, 18:00, 21:00
+    current_hour = now.hour
+    
+    # 次の実行時刻の時間を計算
+    next_hour = ((current_hour // interval_hours) + 1) * interval_hours
+    
+    if next_hour >= 24:
+        # 翌日の0時
+        next_run = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    else:
+        # 今日の次の実行時刻
+        next_run = now.replace(hour=next_hour, minute=0, second=0, microsecond=0)
+    
     return next_run.isoformat()
 
 def update_cron_jobs(config: Dict):
