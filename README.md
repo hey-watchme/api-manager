@@ -8,6 +8,21 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 **開発環境**: http://localhost:9001  
 **GitHubリポジトリ**: https://github.com/matsumotokaya/watchme-api-manager
 
+### 📊 本番環境デプロイ状況（2025年8月8日更新）
+
+✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です
+
+#### 自動化済みAPI
+現在、以下のAPIの自動実行がAPI Managerで管理されています：
+
+- **[心理] Whisper書き起こし** - ✅ 実装済み・動作確認済み
+- **[心理] プロンプト生成** - ✅ 実装済み・動作確認済み  
+- **[心理] スコアリング** - ✅ 実装済み・動作確認済み
+- **[行動] 音声イベント検出** - 🔄 設定中
+- **[行動] 音声イベント集計** - 🔄 設定中
+- **[感情] 音声特徴量抽出** - 🔄 設定中
+- **[感情] 感情スコア集計** - 🔄 設定中
+
 ---
 
 ## アーキテクチャ
@@ -59,13 +74,58 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 本アプリケーションのデプロイは、ECR (Elastic Container Registry) を利用して行います。フロントエンドとスケジューラーAPIは、それぞれ別のDockerイメージとしてビルドされ、EC2上でコンテナとして実行されます。
 
-デプロイの基本的な流れは以下の通りです。
+#### デプロイの基本的な流れ
 
 1.  **イメージのビルド**: ローカルで `docker build` を実行し、本番用のDockerイメージを作成します。
 2.  **ECRへのプッシュ**: 作成したイメージをECRにプッシュします。
 3.  **サーバーでの実行**: EC2サーバー上で、ECRから最新のイメージをプルし、`docker-compose` を使ってコンテナを起動します。
 
-具体的なコマンドは、プロジェクトルートにある `deploy-frontend.sh` や `deploy-scheduler.sh` などのスクリプトを参照してください。
+#### 具体的な手順
+
+##### 1️⃣ ローカルでのイメージビルドとECRへのプッシュ
+```bash
+# フロントエンドのデプロイ
+./deploy-frontend.sh
+
+# スケジューラーAPIのデプロイ
+./deploy-scheduler.sh
+```
+
+##### 2️⃣ EC2サーバーにSSH接続
+```bash
+# EC2サーバーに接続
+ssh -i ~/watchme-key.pem ubuntu@3.24.16.82
+```
+
+##### 3️⃣ EC2サーバーでのコンテナ起動
+```bash
+# ECRにログイン
+aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com
+
+# 最新イメージをプル
+docker pull 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager:latest
+docker pull 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager-scheduler:latest
+
+# 既存コンテナを停止・削除
+docker stop watchme-api-manager-prod watchme-scheduler-prod || true
+docker rm watchme-api-manager-prod watchme-scheduler-prod || true
+
+# docker-compose.all.yml を使用してコンテナを起動
+cd /home/ubuntu/watchme-api-manager
+docker-compose -f docker-compose.all.yml up -d
+
+# watchme-networkへの接続
+docker network connect watchme-network watchme-api-manager-prod
+docker network connect watchme-network watchme-scheduler-prod
+```
+
+#### デプロイ時の注意点
+
+1.  **環境変数の設定**: EC2サーバーの `/home/ubuntu/watchme-api-manager/.env` ファイルに適切な環境変数を設定する必要があります。
+2.  **ネットワーク接続**: 各コンテナは `watchme-network` に接続して、他のサービスと通信できるようにする必要があります。
+3.  **ヘルスチェック**: デプロイ後は必ず以下のエンドポイントで動作確認を行ってください：
+    - フロントエンド: https://api.hey-watch.me/manager/
+    - スケジューラーAPI: https://api.hey-watch.me/scheduler/status/whisper
 
 ### サーバー設定 (Nginx / systemd) 【重要】
 
@@ -87,3 +147,45 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 - **過去の障害事例:**
   - [**2025-08-08: スケジューラーのコンテナ間通信エラー**](./docs/incidents/2025-08-08-scheduler-network-fix.md)
     - `host.docker.internal` の名前解決に失敗し、スケジューラーがAPIを呼び出せなかった問題の調査と解決の記録です。
+
+### デプロイ時によくある問題と対策
+
+#### 1. コンテナ間通信の問題
+- **症状**: スケジューラーから他のAPIを呼び出せない
+- **原因**: Linux環境では `host.docker.internal` が使用できない
+- **解決策**: 
+  - コンテナ名を使用して通信（例: `http://api-transcriber:8001`）
+  - 全てのコンテナを `watchme-network` に接続
+
+#### 2. 環境変数の設定漏れ
+- **症状**: API接続エラーやSupabase認証エラー
+- **原因**: `.env` ファイルが存在しないか、必要な変数が不足
+- **解決策**: 
+  - EC2サーバーで `.env` ファイルを作成
+  - 他のサービスの `.env` ファイルを参考に必要な値を設定
+
+#### 3. Nginxルーティングの確認
+- **症状**: ブラウザからAPIエンドポイントにアクセスできない
+- **確認方法**: 
+  ```bash
+  # Nginx設定の確認
+  sudo cat /etc/nginx/sites-available/api.hey-watch.me | grep -A 5 "location"
+  ```
+
+### 今後の実装・デプロイに向けた推奨事項
+
+1. **デプロイスクリプトの活用**
+   - `deploy-frontend.sh` と `deploy-scheduler.sh` を使用してECRへのプッシュを自動化
+   - EC2サーバー側の手順もスクリプト化することを推奨
+
+2. **ネットワーク設定の標準化**
+   - 新しいコンテナは必ず `watchme-network` に接続
+   - `docker-compose.yml` に `networks` セクションを明記
+
+3. **ヘルスチェックの実装**
+   - 各APIにヘルスチェックエンドポイントを実装
+   - docker-composeでヘルスチェックを設定
+
+4. **ログ監視**
+   - `docker logs` コマンドで定期的にログを確認
+   - スケジューラーのログは `/var/log/scheduler/` に保存される
