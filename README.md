@@ -42,6 +42,46 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 ---
 
+## 開発ガイドライン
+
+### 🚨 ブランチ運用ルール（必須）
+
+**重要**: featureブランチで作業した内容は、必ずmainブランチにマージしてください。
+
+1. **featureブランチでの開発**
+   ```bash
+   # 新機能の開発を開始
+   git checkout -b feature/新機能名
+   
+   # 開発・コミット
+   git add .
+   git commit -m "feat: 新機能の説明"
+   ```
+
+2. **mainブランチへのマージ（必須）**
+   ```bash
+   # mainブランチを最新に更新
+   git checkout main
+   git pull origin main
+   
+   # featureブランチをマージ
+   git merge feature/新機能名
+   
+   # リモートにプッシュ
+   git push origin main
+   ```
+
+3. **Pull Requestの活用（推奨）**
+   - 大きな変更の場合は、GitHubでPull Requestを作成
+   - コードレビューを経てマージ
+
+**⚠️ 注意**: 
+- featureブランチで作業したまま放置しない
+- mainブランチが唯一の真実の源（Single Source of Truth）
+- デプロイは必ずmainブランチから実行
+
+---
+
 ## 開発環境セットアップ
 
 ### 前提条件
@@ -60,7 +100,13 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 2.  **フロントエンドの起動**
     ```bash
     npm install
-    npm run dev
+    
+    # バックグラウンドで起動（推奨）
+    nohup npm run dev > /dev/null 2>&1 &
+    
+    # または、フォアグラウンドで起動する場合
+    # npm run dev
+    
     # => http://localhost:9001 でアクセス可能
     ```
 
