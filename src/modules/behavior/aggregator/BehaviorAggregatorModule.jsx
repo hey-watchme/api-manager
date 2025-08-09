@@ -3,6 +3,7 @@ import Card from '../../../components/common/Card'
 import BehaviorAggregatorForm from './BehaviorAggregatorForm'
 import BehaviorAggregatorResults from './BehaviorAggregatorResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
+import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
 import behaviorAggregatorApiClient from '../../../services/BehaviorAggregatorApiClient'
 
 export default function BehaviorAggregatorModule() {
@@ -88,26 +89,43 @@ export default function BehaviorAggregatorModule() {
         </div>
       </div>
 
-      <BehaviorAggregatorForm 
-        onSubmit={handleSubmit}
-        loading={loading || checkingStatus}
-        disabled={apiStatus !== 'online'}
-      />
+      {/* 自動処理セクション */}
+      <div className="mb-8">
+        <AutoProcessControlWithParams 
+          apiName="behavior-aggregator"
+          displayName="Behavior Aggregator"
+          disabled={apiStatus !== 'online'}
+          defaultDeviceId="m5core2_auto"
+          showDeviceSelector={true}
+          showDateSelector={true}
+        />
+      </div>
 
-      {error && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-800">{error}</p>
-        </div>
-      )}
+      {/* 手動処理セクション */}
+      <div className="border-t pt-6">
+        <h4 className="text-md font-medium text-gray-900 mb-4">🔧 手動処理</h4>
+        
+        <BehaviorAggregatorForm 
+          onSubmit={handleSubmit}
+          loading={loading || checkingStatus}
+          disabled={apiStatus !== 'online'}
+        />
+        
+        {error && (
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
 
-      {results && (
-        <div className="mt-6">
-          <BehaviorAggregatorResults 
-            results={results} 
-            loading={checkingStatus}
-          />
-        </div>
-      )}
+        {results && (
+          <div className="mt-6">
+            <BehaviorAggregatorResults 
+              results={results} 
+              loading={checkingStatus}
+            />
+          </div>
+        )}
+      </div>
     </Card>
   )
 }

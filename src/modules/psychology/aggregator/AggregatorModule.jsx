@@ -3,6 +3,7 @@ import AggregatorForm from './AggregatorForm'
 import AggregatorResults from './AggregatorResults'
 import Card from '../../../components/common/Card'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
+import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
 import aggregatorApiClient from '../../../services/AggregatorApiClient'
 
 function AggregatorModule() {
@@ -54,23 +55,40 @@ function AggregatorModule() {
         </div>
       </div>
 
-      <AggregatorForm 
-        onSubmit={handleSubmit} 
-        loading={loading}
-        disabled={apiStatus !== 'online'}
-      />
-      
-      {error && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-800">{error}</p>
-        </div>
-      )}
-      
-      {result && (
-        <div className="mt-6">
-          <AggregatorResults result={result} />
-        </div>
-      )}
+      {/* 自動処理セクション */}
+      <div className="mb-8">
+        <AutoProcessControlWithParams 
+          apiName="vibe-aggregator"
+          displayName="Vibe Aggregator"
+          disabled={apiStatus !== 'online'}
+          defaultDeviceId="m5core2_auto"
+          showDeviceSelector={true}
+          showDateSelector={true}
+        />
+      </div>
+
+      {/* 手動処理セクション */}
+      <div className="border-t pt-6">
+        <h4 className="text-md font-medium text-gray-900 mb-4">🔧 手動処理</h4>
+        
+        <AggregatorForm 
+          onSubmit={handleSubmit} 
+          loading={loading}
+          disabled={apiStatus !== 'online'}
+        />
+        
+        {error && (
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+        
+        {result && (
+          <div className="mt-6">
+            <AggregatorResults result={result} />
+          </div>
+        )}
+      </div>
     </Card>
   )
 }

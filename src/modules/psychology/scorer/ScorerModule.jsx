@@ -3,6 +3,7 @@ import ScorerForm from './ScorerForm'
 import ScorerResults from './ScorerResults'
 import Card from '../../../components/common/Card'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
+import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
 import scorerApiClient from '../../../services/ScorerApiClient'
 
 function ScorerModule() {
@@ -54,23 +55,40 @@ function ScorerModule() {
         </div>
       </div>
 
-      <ScorerForm 
-        onSubmit={handleSubmit} 
-        loading={loading}
-        disabled={apiStatus !== 'online'}
-      />
-      
-      {error && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-800">{error}</p>
-        </div>
-      )}
-      
-      {result && (
-        <div className="mt-6">
-          <ScorerResults result={result} />
-        </div>
-      )}
+      {/* 自動処理セクション */}
+      <div className="mb-8">
+        <AutoProcessControlWithParams 
+          apiName="vibe-scorer"
+          displayName="Vibe Scorer"
+          disabled={apiStatus !== 'online'}
+          defaultDeviceId="m5core2_auto"
+          showDeviceSelector={true}
+          showDateSelector={true}
+        />
+      </div>
+
+      {/* 手動処理セクション */}
+      <div className="border-t pt-6">
+        <h4 className="text-md font-medium text-gray-900 mb-4">🔧 手動処理</h4>
+        
+        <ScorerForm 
+          onSubmit={handleSubmit} 
+          loading={loading}
+          disabled={apiStatus !== 'online'}
+        />
+        
+        {error && (
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+        
+        {result && (
+          <div className="mt-6">
+            <ScorerResults result={result} />
+          </div>
+        )}
+      </div>
     </Card>
   )
 }

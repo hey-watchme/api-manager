@@ -3,6 +3,7 @@ import Card from '../../../components/common/Card'
 import EmotionAggregatorForm from './EmotionAggregatorForm'
 import EmotionAggregatorResults from './EmotionAggregatorResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
+import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
 import emotionAggregatorApiClient from '../../../services/EmotionAggregatorApiClient'
 
 export default function EmotionAggregatorModule() {
@@ -54,23 +55,40 @@ export default function EmotionAggregatorModule() {
         </div>
       </div>
 
-      <EmotionAggregatorForm 
-        onSubmit={handleSubmit}
-        loading={loading}
-        disabled={apiStatus !== 'online'}
-      />
+      {/* 自動処理セクション */}
+      <div className="mb-8">
+        <AutoProcessControlWithParams 
+          apiName="emotion-aggregator"
+          displayName="Emotion Aggregator"
+          disabled={apiStatus !== 'online'}
+          defaultDeviceId="m5core2_auto"
+          showDeviceSelector={true}
+          showDateSelector={true}
+        />
+      </div>
 
-      {error && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-800">{error}</p>
-        </div>
-      )}
+      {/* 手動処理セクション */}
+      <div className="border-t pt-6">
+        <h4 className="text-md font-medium text-gray-900 mb-4">🔧 手動処理</h4>
+        
+        <EmotionAggregatorForm 
+          onSubmit={handleSubmit}
+          loading={loading}
+          disabled={apiStatus !== 'online'}
+        />
+        
+        {error && (
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
 
-      {results && (
-        <div className="mt-6">
-          <EmotionAggregatorResults results={results} />
-        </div>
-      )}
+        {results && (
+          <div className="mt-6">
+            <EmotionAggregatorResults results={results} />
+          </div>
+        )}
+      </div>
     </Card>
   )
 }
