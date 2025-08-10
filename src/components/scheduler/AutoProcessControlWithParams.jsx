@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import schedulerApiClient from '../../services/SchedulerApiClient'
+import { DEFAULT_DEVICE_ID } from '../../config/constants'
 
 export default function AutoProcessControlWithParams({ 
   apiName, 
   displayName = apiName,
   disabled = false,
-  defaultDeviceId = 'm5core2_auto',
+  defaultDeviceId = DEFAULT_DEVICE_ID,
   showDeviceSelector = true,
   showDateSelector = true
 }) {
@@ -156,7 +157,7 @@ export default function AutoProcessControlWithParams({
                 onChange={(e) => handleDeviceChange(e.target.value)}
                 disabled={disabled || loading}
                 className="w-full text-sm border rounded px-2 py-1 disabled:bg-gray-100"
-                placeholder="m5core2_auto"
+                placeholder={DEFAULT_DEVICE_ID}
               />
             </div>
           )}

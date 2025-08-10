@@ -33,12 +33,13 @@ API_CONFIGS = {
         "type": "file_based"
     },
     "vibe-aggregator": {
-        "endpoint": "http://localhost:8009/process-batch",
+        "endpoint": "http://localhost:8009/generate-mood-prompt-supabase",
         "display_name": "Vibe Aggregator",
-        "type": "device_based"
+        "type": "device_based",
+        "method": "GET"
     },
     "vibe-scorer": {
-        "endpoint": "http://localhost:8002/analyze-batch",
+        "endpoint": "http://localhost:8002/analyze-vibegraph-supabase",
         "display_name": "Vibe Scorer",
         "type": "device_based"
     },
@@ -48,7 +49,7 @@ API_CONFIGS = {
         "type": "device_based"
     },
     "emotion-aggregator": {
-        "endpoint": "http://localhost:8012/analyze/batch",
+        "endpoint": "http://localhost:8012/analyze/opensmile-aggregator",
         "display_name": "Emotion Aggregator",
         "type": "device_based"
     },
@@ -126,11 +127,21 @@ def call_device_based_api(api_name: str, device_id: str, process_date: str) -> b
         
         logger.info(f"{api_name}: API呼び出し開始 (device: {device_id}, date: {process_date})")
         
-        response = requests.post(
-            config['endpoint'],
-            json=request_data,
-            timeout=config.get('timeout', 300)
-        )
+        # HTTPメソッドの選択（デフォルトはPOST）
+        method = config.get('method', 'POST').upper()
+        
+        if method == 'GET':
+            response = requests.get(
+                config['endpoint'],
+                params=request_data,
+                timeout=config.get('timeout', 300)
+            )
+        else:
+            response = requests.post(
+                config['endpoint'],
+                json=request_data,
+                timeout=config.get('timeout', 300)
+            )
         
         if response.status_code == 200:
             result = response.json()

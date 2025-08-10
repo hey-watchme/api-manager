@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Button from '../../../components/common/Button'
 import FetchPendingFilesButton from '../../../components/common/FetchPendingFilesButton'
 import AudioFilesService from '../../../services/AudioFilesService'
+import { DEFAULT_DEVICE_ID } from '../../../config/constants'
 
 export default function EmotionFeaturesForm({ onSubmit, loading, disabled }) {
   const [filePaths, setFilePaths] = useState('')
@@ -43,7 +44,7 @@ export default function EmotionFeaturesForm({ onSubmit, loading, disabled }) {
           id="filePaths"
           value={filePaths}
           onChange={(e) => setFilePaths(e.target.value)}
-          placeholder="例: files/d067d407-cf73-4174-a9c1-d91fb60d64d0/2025-07-19/14-30/audio.wav"
+          placeholder={`例: files/${DEFAULT_DEVICE_ID}/2025-07-19/14-30/audio.wav`}
           rows={6}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           disabled={disabled || loading}

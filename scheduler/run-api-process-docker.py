@@ -12,6 +12,13 @@ from datetime import datetime, date
 from supabase import create_client, Client
 import os
 
+# 設定をインポート
+try:
+    from config import DEFAULT_DEVICE_ID
+except ImportError:
+    # config.pyが存在しない場合のフォールバック
+    DEFAULT_DEVICE_ID = 'm5cddc22-4f52-4d0d-8a7a-cda8b88e33fa'
+
 # ログ設定
 LOG_DIR = "/var/log/scheduler"
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -67,12 +74,13 @@ API_CONFIGS = {
         "type": "file_based"
     },
     "vibe-aggregator": {
-        "endpoint": "http://api_gen_prompt_mood_chart:8009/process-batch",
+        "endpoint": "http://api_gen_prompt_mood_chart:8009/generate-mood-prompt-supabase",
         "display_name": "Vibe Aggregator",
-        "type": "device_based"
+        "type": "device_based",
+        "method": "GET"  # GETメソッドを使用
     },
     "vibe-scorer": {
-        "endpoint": "http://api-gpt-v1:8002/analyze-batch",
+        "endpoint": "http://api-gpt-v1:8002/analyze-vibegraph-supabase",
         "display_name": "Vibe Scorer",
         "type": "device_based"
     },
@@ -82,7 +90,7 @@ API_CONFIGS = {
         "type": "device_based"
     },
     "emotion-aggregator": {
-        "endpoint": "http://opensmile-aggregator:8012/analyze/batch",
+        "endpoint": "http://opensmile-aggregator:8012/analyze/opensmile-aggregator",
         "display_name": "Emotion Aggregator",
         "type": "device_based"
     },
@@ -168,11 +176,21 @@ def call_device_based_api(api_name: str, device_id: str, process_date: str, api_
         
         log.info(f"{api_name}: API呼び出し開始 (device: {device_id}, date: {process_date})")
         
-        response = requests.post(
-            config['endpoint'],
-            json=request_data,
-            timeout=config.get('timeout', 300)
-        )
+        # HTTPメソッドの選択（デフォルトはPOST）
+        method = config.get('method', 'POST').upper()
+        
+        if method == 'GET':
+            response = requests.get(
+                config['endpoint'],
+                params=request_data,
+                timeout=config.get('timeout', 300)
+            )
+        else:
+            response = requests.post(
+                config['endpoint'],
+                json=request_data,
+                timeout=config.get('timeout', 300)
+            )
         
         if response.status_code == 200:
             result = response.json()
@@ -275,7 +293,7 @@ def main():
             scheduler_config = load_scheduler_config()
             api_config = scheduler_config.get('apis', {}).get(api_name, {})
             
-            device_id = api_config.get('deviceId', 'm5cddc22-4f52-4d0d-8a7a-cda8b88e33fa')
+            device_id = api_config.get('deviceId', DEFAULT_DEVICE_ID)
             process_date = api_config.get('processDate', 'today')
             
             api_logger.info(f"デバイスベース処理: device={device_id}, date={process_date}")

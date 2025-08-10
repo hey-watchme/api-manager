@@ -13,13 +13,10 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 ✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です
 
 #### 🆕 最新アップデート（2025年8月10日）
-- **スケジューラーUI追加**: 残り4つのAPIにスケジューラー設定UIを追加
-  - [心理] プロンプト生成（Vibe Aggregator）
-  - [心理] スコアリング（Vibe Scorer）
-  - [行動] 音声イベント集計（Behavior Aggregator）
-  - [感情] 感情スコア集計（Emotion Aggregator）
-- **デバイスID・日付パラメータ対応**: デバイスベースのAPIでデバイスID（デフォルト: m5core2_auto）と処理日付を設定可能に
-- **注意**: スケジューラーのバックエンド実装は今後追加予定。現在はUI表示のみ
+- **スケジューラー完全実装**: 4つのデバイスベースAPIバックエンド実装完了
+- **UUID標準化**: 正式なUUID v4形式に統一（`9f7d6e27-98c3-4c19-bdfb-f7fda58b9a93`）
+- **コンポーネント統合**: DeviceIdInputで重複コード削除、DRY原則実現
+- **エンドポイント修正**: server_overview.md準拠で全API統一
 
 #### 🔗 **コンテナ名とAPI対応表（重要）**
 スケジューラーが各APIと通信する際の**正確なコンテナ名**とポート番号：
@@ -27,8 +24,8 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 | API種類 | UI上の名前 | **実際のコンテナ名** | ポート | エンドポイント |
 |---------|-----------|---------------------|--------|----------------|
 | **[心理] Whisper書き起こし** | `whisper` | `api-transcriber` | 8001 | `/fetch-and-transcribe` |
-| **[心理] プロンプト生成** | `vibe-aggregator` | `api_gen_prompt_mood_chart` | 8009 | `/process-batch` |
-| **[心理] スコアリング** | `vibe-scorer` | `api-gpt-v1` | 8002 | `/analyze-batch` |
+| **[心理] プロンプト生成** | `vibe-aggregator` | `api_gen_prompt_mood_chart` | 8009 | `/generate-mood-prompt-supabase` |
+| **[心理] スコアリング** | `vibe-scorer` | `api-gpt-v1` | 8002 | `/analyze-vibegraph-supabase` |
 | **[行動] 音声イベント検出** | `behavior-features` | `api_sed_v1-sed_api-1` | 8004 | `/fetch-and-process-paths` |
 | **[感情] 音声特徴量抽出** | `emotion-features` | `opensmile-api` | 8011 | `/process/emotion-features` |
 
@@ -42,11 +39,11 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 - **[行動] 音声イベント検出** - ファイルベース自動処理  
 - **[感情] 音声特徴量抽出** - ファイルベース自動処理
 
-##### 🔄 UI実装済み（バックエンド実装は今後）
-- **[心理] プロンプト生成** - デバイスベース処理（UI表示のみ）
-- **[心理] スコアリング** - デバイスベース処理（UI表示のみ）
-- **[行動] 音声イベント集計** - デバイスベース処理（UI表示のみ）
-- **[感情] 感情スコア集計** - デバイスベース処理（UI表示のみ）
+##### ✅ デバイスベースAPI（バックエンド実装完了）
+- **[心理] プロンプト生成** - デバイスベース自動処理
+- **[心理] スコアリング** - デバイスベース自動処理
+- **[行動] 音声イベント集計** - デバイスベース自動処理
+- **[感情] 感情スコア集計** - デバイスベース自動処理
 
 ---
 
@@ -93,6 +90,32 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 - featureブランチで作業したまま放置しない
 - mainブランチが唯一の真実の源（Single Source of Truth）
 - デプロイは必ずmainブランチから実行
+
+#### 🧹 ブランチクリーンアップ（定期実行推奨）
+
+**問題**: 古いfeatureブランチが残ると、どれが最新か分からなくなる
+
+**解決策**: マージ後は必ず不要なブランチを削除する
+```bash
+# 1. マージ済みブランチの確認
+git branch --merged main
+
+# 2. 不要なローカルブランチを削除
+git branch -d feature/古いブランチ名
+
+# 3. 孤立したブランチ（リモートにない）を確認
+git branch -vv | grep "\[gone\]"
+
+# 4. 孤立ブランチを強制削除（内容確認後）
+git branch -D feature/孤立したブランチ名
+
+# 5. リモートの削除済みブランチを反映
+git remote prune origin
+```
+
+**定期メンテナンス**:
+- 月1回程度、`git branch -vv` でブランチ状況を確認
+- `[gone]` 表示のあるブランチは削除対象
 
 ---
 

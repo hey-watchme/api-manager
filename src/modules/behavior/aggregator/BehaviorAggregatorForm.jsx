@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import Button from '../../../components/common/Button'
+import DeviceIdInput from '../../../components/common/DeviceIdInput'
+import { DEFAULT_DEVICE_ID } from '../../../config/constants'
 
 export default function BehaviorAggregatorForm({ onSubmit, loading, disabled }) {
-  const [deviceId, setDeviceId] = useState('')
+  const [deviceId, setDeviceId] = useState(DEFAULT_DEVICE_ID)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
 
   const handleSubmit = (e) => {
@@ -23,23 +25,12 @@ export default function BehaviorAggregatorForm({ onSubmit, loading, disabled }) 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="deviceId" className="block text-sm font-medium text-gray-700 mb-2">
-          デバイスID
-        </label>
-        <input
-          id="deviceId"
-          type="text"
-          value={deviceId}
-          onChange={(e) => setDeviceId(e.target.value)}
-          placeholder="例: d067d407-cf73-4174-a9c1-d91fb60d64d0"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          disabled={disabled || loading}
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          行動パターンを分析するデバイスのIDを入力してください
-        </p>
-      </div>
+      <DeviceIdInput
+        value={deviceId}
+        onChange={setDeviceId}
+        disabled={disabled || loading}
+        helpText="行動パターンを分析するデバイスのIDを入力してください"
+      />
 
       <div>
         <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
