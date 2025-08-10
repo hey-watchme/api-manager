@@ -83,15 +83,26 @@ else
 fi
 echo ""
 
-# 6. docker-compose.all.ymlを使用してコンテナ起動
-print_info "docker-composeでコンテナを起動しています..."
+# 6. コンテナ起動
+print_info "コンテナを起動しています..."
 cd /home/ubuntu/watchme-api-manager
 
-# docker-compose.all.ymlがない場合はdocker runで起動
-if [ -f docker-compose.all.yml ]; then
+# docker-compose.all.ymlでサービスが定義されているか確認
+if [ -f docker-compose.all.yml ] && grep -q "watchme-scheduler-prod:" docker-compose.all.yml; then
+    print_info "docker-composeを使用してコンテナを起動します..."
     docker-compose -f docker-compose.all.yml up -d watchme-scheduler-prod
+elif [ -f docker-compose.all.yml ]; then
+    print_warning "docker-compose.all.ymlにwatchme-scheduler-prodサービスが定義されていません"
+    print_info "docker runを使用してコンテナを起動します..."
+    docker run -d \
+        --name ${CONTAINER_NAME} \
+        --env-file /home/ubuntu/watchme-api-manager/.env \
+        -v /home/ubuntu/scheduler:/home/ubuntu/scheduler \
+        -v /var/log/scheduler:/var/log/scheduler \
+        -p 8015:8015 \
+        ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest
 else
-    print_warning "docker-compose.all.ymlが見つかりません。docker runで起動します..."
+    print_info "docker runを使用してコンテナを起動します..."
     docker run -d \
         --name ${CONTAINER_NAME} \
         --env-file /home/ubuntu/watchme-api-manager/.env \
@@ -100,7 +111,14 @@ else
         -p 8015:8015 \
         ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest
 fi
-print_success "コンテナ起動完了"
+
+# 起動結果の確認
+if [ $? -eq 0 ]; then
+    print_success "コンテナ起動コマンドが正常に実行されました"
+else
+    print_error "コンテナの起動に失敗しました"
+    exit 1
+fi
 echo ""
 
 # 7. watchme-networkへの接続
