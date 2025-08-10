@@ -139,15 +139,14 @@ git remote prune origin
     cd watchme-api-manager
     ```
 
-2.  **フロントエンドの起動**
+2.  **フロントエンド開発サーバーの起動**
     ```bash
+    # 推奨：専用スクリプトでバックグラウンド起動
+    ./start-frontend-dev.sh
+    
+    # または手動起動
     npm install
-    
-    # バックグラウンドで起動（推奨）
-    nohup npm run dev > /dev/null 2>&1 &
-    
-    # または、フォアグラウンドで起動する場合
-    # npm run dev
+    npm run dev
     
     # => http://localhost:9001 でアクセス可能
     ```
