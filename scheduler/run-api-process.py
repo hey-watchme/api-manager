@@ -219,7 +219,7 @@ def main():
             scheduler_config = load_scheduler_config()
             api_config = scheduler_config.get('apis', {}).get(api_name, {})
             
-            device_id = api_config.get('deviceId', 'm5core2_auto')
+            device_id = api_config.get('deviceId', 'm5cddc22-4f52-4d0d-8a7a-cda8b88e33fa')
             process_date = api_config.get('processDate', 'today')
             
             logger.info(f"デバイスベース処理: device={device_id}, date={process_date}")

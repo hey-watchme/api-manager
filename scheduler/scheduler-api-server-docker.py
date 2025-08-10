@@ -45,6 +45,8 @@ class SchedulerConfig(BaseModel):
     interval: int
     timeout: Optional[int] = 300
     max_files: Optional[int] = 100
+    deviceId: Optional[str] = None
+    processDate: Optional[str] = None
 
 # 設定管理
 def load_config() -> Dict:
@@ -176,7 +178,9 @@ async def get_api_status(api_name: str):
         "enabled": False,
         "interval": 3,
         "timeout": 300,
-        "max_files": 100
+        "max_files": 100,
+        "deviceId": None,
+        "processDate": None
     })
     
     execution_info = get_last_execution_info(api_name)
@@ -186,6 +190,8 @@ async def get_api_status(api_name: str):
         "interval": api_config.get("interval", 3),
         "timeout": api_config.get("timeout", 300),
         "max_files": api_config.get("max_files", 100),
+        "deviceId": api_config.get("deviceId"),
+        "processDate": api_config.get("processDate"),
         "nextRun": calculate_next_run(api_config.get("interval", 3)) if api_config.get("enabled") else None,
         **execution_info
     }
@@ -196,13 +202,21 @@ async def toggle_api_scheduler(api_name: str, scheduler_config: SchedulerConfig)
     config = load_config()
     
     # API設定更新
-    config["apis"][api_name] = {
+    api_settings = {
         "enabled": scheduler_config.enabled,
         "interval": scheduler_config.interval,
         "timeout": scheduler_config.timeout,
         "max_files": scheduler_config.max_files,
         "updated_at": datetime.now().isoformat()
     }
+    
+    # デバイスベースAPIの場合、追加パラメータを保存
+    if scheduler_config.deviceId is not None:
+        api_settings["deviceId"] = scheduler_config.deviceId
+    if scheduler_config.processDate is not None:
+        api_settings["processDate"] = scheduler_config.processDate
+    
+    config["apis"][api_name] = api_settings
     
     # 設定保存
     save_config(config)
