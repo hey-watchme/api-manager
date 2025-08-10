@@ -18,18 +18,23 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 - **コンポーネント統合**: DeviceIdInputで重複コード削除、DRY原則実現
 - **エンドポイント修正**: server_overview.md準拠で全API統一
 
-#### 🔗 **コンテナ名とAPI対応表（重要）**
+#### 🔗 **コンテナ名とAPI対応表（2025年8月10日更新 - 必ず参照）**
 スケジューラーが各APIと通信する際の**正確なコンテナ名**とポート番号：
 
-| API種類 | UI上の名前 | **実際のコンテナ名** | ポート | エンドポイント |
-|---------|-----------|---------------------|--------|----------------|
-| **[心理] Whisper書き起こし** | `whisper` | `api-transcriber` | 8001 | `/fetch-and-transcribe` |
-| **[心理] プロンプト生成** | `vibe-aggregator` | `api_gen_prompt_mood_chart` | 8009 | `/generate-mood-prompt-supabase` |
-| **[心理] スコアリング** | `vibe-scorer` | `api-gpt-v1` | 8002 | `/analyze-vibegraph-supabase` |
-| **[行動] 音声イベント検出** | `behavior-features` | `api_sed_v1-sed_api-1` | 8004 | `/fetch-and-process-paths` |
-| **[感情] 音声特徴量抽出** | `emotion-features` | `opensmile-api` | 8011 | `/process/emotion-features` |
+| API種類 | UI上の名前 | **実際のコンテナ名** | ポート | エンドポイント | HTTPメソッド | 処理タイプ |
+|---------|-----------|---------------------|--------|----------------|-------------|-----------|
+| **[心理] Whisper書き起こし** | `whisper` | `api-transcriber` | 8001 | `/fetch-and-transcribe` | POST | ファイルベース |
+| **[心理] プロンプト生成** | `vibe-aggregator` | `api_gen_prompt_mood_chart` | 8009 | `/generate-mood-prompt-supabase` | **GET** ⚠️ | デバイスベース |
+| **[心理] スコアリング** | `vibe-scorer` | `api-gpt-v1` | 8002 | `/analyze-vibegraph-supabase` | POST | デバイスベース |
+| **[行動] 音声イベント検出** | `behavior-features` | `api_sed_v1-sed_api-1` | 8004 | `/fetch-and-process-paths` | POST | ファイルベース |
+| **[行動] 音声イベント集計** | `behavior-aggregator` | `api-sed-aggregator` | 8010 | `/analysis/sed` | POST | デバイスベース |
+| **[感情] 音声特徴量抽出** | `emotion-features` | `opensmile-api` | 8011 | `/process/emotion-features` | POST | ファイルベース |
+| **[感情] 感情スコア集計** | `emotion-aggregator` | `opensmile-aggregator` | 8012 | `/analyze/opensmile-aggregator` | POST | デバイスベース |
 
-**⚠️ 注意**: UIに表示される名前と実際のコンテナ名は異なります！
+**⚠️ 重要な注意事項:**
+1. UIに表示される名前と実際のコンテナ名は異なります！
+2. `vibe-aggregator`のみGETメソッドを使用（他はすべてPOST）
+3. Dockerコンテナ内では`localhost`ではなく、必ずコンテナ名を使用すること
 
 #### 自動化済みAPI
 現在、以下のAPIの自動実行がAPI Managerで管理されています：
@@ -383,18 +388,36 @@ chmod +x /home/ubuntu/connect-all-containers.sh
 
 ### 今後の実装・デプロイに向けた推奨事項
 
-1. **デプロイスクリプトの活用**
+1. **🚨 エンドポイント設定の確認（最重要）**
+   - 新しいAPIを追加する際は、必ず上記の「コンテナ名とAPI対応表」を更新
+   - `run-api-process-docker.py`と手動実行用のAPIクライアントのエンドポイントを一致させる
+   - **3つのファイルを必ず同期させる:**
+     - `/scheduler/run-api-process-docker.py` (Docker環境用)
+     - `/run-api-process.py` (ローカル環境用)
+     - `/src/services/*ApiClient.js` (フロントエンド用)
+
+2. **デプロイスクリプトの活用**
    - `deploy-frontend.sh` と `deploy-scheduler.sh` を使用してECRへのプッシュを自動化
    - EC2サーバー側の手順もスクリプト化することを推奨
 
-2. **ネットワーク設定の標準化**
+3. **ネットワーク設定の標準化**
    - 新しいコンテナは必ず `watchme-network` に接続
    - `docker-compose.yml` に `networks` セクションを明記
+   - **コンテナ名の命名規則:** ハイフン区切りで統一（例: `api-transcriber`、`opensmile-api`）
 
-3. **ヘルスチェックの実装**
+4. **ヘルスチェックの実装**
    - 各APIにヘルスチェックエンドポイントを実装
    - docker-composeでヘルスチェックを設定
 
-4. **ログ監視**
+5. **ログ監視**
    - `docker logs` コマンドで定期的にログを確認
    - スケジューラーのログは `/var/log/scheduler/` に保存される
+
+6. **エンドポイントのテスト方法**
+   ```bash
+   # Docker環境でのテスト（EC2サーバー上で実行）
+   docker exec watchme-scheduler-prod python /app/run-api-process-docker.py [API名]
+   
+   # 例：emotion-aggregatorのテスト
+   docker exec watchme-scheduler-prod python /app/run-api-process-docker.py emotion-aggregator
+   ```
