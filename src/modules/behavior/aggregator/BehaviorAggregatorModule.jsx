@@ -5,6 +5,7 @@ import BehaviorAggregatorResults from './BehaviorAggregatorResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
 import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
 import behaviorAggregatorApiClient from '../../../services/BehaviorAggregatorApiClient'
+import { DEFAULT_DEVICE_ID } from '../../../config/constants'
 
 export default function BehaviorAggregatorModule() {
   const [apiStatus, setApiStatus] = useState('checking')
@@ -95,7 +96,7 @@ export default function BehaviorAggregatorModule() {
           apiName="behavior-aggregator"
           displayName="Behavior Aggregator"
           disabled={apiStatus !== 'online'}
-          defaultDeviceId="m5core2_auto"
+          defaultDeviceId={DEFAULT_DEVICE_ID}
           showDeviceSelector={true}
           showDateSelector={true}
         />

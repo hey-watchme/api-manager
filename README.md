@@ -58,6 +58,44 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 ---
 
+## 🔧 デバイスID設定管理（重要）
+
+### テストデバイスIDの一元管理
+
+**問題**: デバイスIDが複数箇所に分散していると、変更時に修正漏れが発生する
+
+**解決策**: フロントエンドの設定を唯一の真実の源（Single Source of Truth）とする
+
+#### デバイスID変更手順
+
+1. **フロントエンドで変更**
+   - `src/config/constants.js` の `DEFAULT_DEVICE_ID` を変更
+   - これにより全てのUIコンポーネントに反映される
+
+2. **本番環境への反映**
+   - API Managerの画面から各APIの設定を保存
+   - これにより `/home/ubuntu/scheduler/config.json` が更新される
+   - スケジューラーは自動的に新しいデバイスIDを使用
+
+3. **確認方法**
+   ```bash
+   # 本番サーバーで実行
+   cat /home/ubuntu/scheduler/config.json | jq '.apis[].deviceId'
+   ```
+
+#### ⚠️ 注意事項
+
+- **バックエンドのハードコーディングは避ける**
+- config.jsonが存在しない場合、スケジューラーは警告を出力
+- 緊急時のフォールバック値は `scheduler/run-api-process-docker.py` に記載
+
+#### 設定ファイルの優先順位
+
+1. `/home/ubuntu/scheduler/config.json` （フロントエンドから設定）
+2. フォールバック値（警告付きで使用）
+
+---
+
 ## 開発ガイドライン
 
 ### 🚨 ブランチ運用ルール（必須）

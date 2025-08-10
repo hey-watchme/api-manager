@@ -5,6 +5,7 @@ import EmotionAggregatorResults from './EmotionAggregatorResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
 import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
 import emotionAggregatorApiClient from '../../../services/EmotionAggregatorApiClient'
+import { DEFAULT_DEVICE_ID } from '../../../config/constants'
 
 export default function EmotionAggregatorModule() {
   const [apiStatus, setApiStatus] = useState('checking')
@@ -61,7 +62,7 @@ export default function EmotionAggregatorModule() {
           apiName="emotion-aggregator"
           displayName="Emotion Aggregator"
           disabled={apiStatus !== 'online'}
-          defaultDeviceId="m5core2_auto"
+          defaultDeviceId={DEFAULT_DEVICE_ID}
           showDeviceSelector={true}
           showDateSelector={true}
         />

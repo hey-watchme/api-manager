@@ -8,9 +8,12 @@ import sys
 import requests
 import json
 import logging
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from supabase import create_client, Client
 import os
+
+# JSTタイムゾーン定義（このスケジューラーは日本向けテスト用）
+JST = timezone(timedelta(hours=9))
 
 # ログ設定
 logging.basicConfig(
@@ -116,9 +119,12 @@ def call_device_based_api(api_name: str, device_id: str, process_date: str) -> b
     try:
         config = API_CONFIGS[api_name]
         
-        # process_dateが"today"の場合は今日の日付に変換
+        # process_dateが"today"の場合はJSTでの今日の日付に変換
         if process_date == "today":
-            process_date = date.today().strftime("%Y-%m-%d")
+            # JSTでの現在時刻を取得
+            jst_now = datetime.now(JST)
+            process_date = jst_now.strftime("%Y-%m-%d")
+            logger.info(f"JST日付を使用: {process_date}")
         
         request_data = {
             "device_id": device_id,
@@ -230,7 +236,7 @@ def main():
             scheduler_config = load_scheduler_config()
             api_config = scheduler_config.get('apis', {}).get(api_name, {})
             
-            device_id = api_config.get('deviceId', 'm5core2_auto')
+            device_id = api_config.get('deviceId', '9f7d6e27-98c3-4c19-bdfb-f7fda58b9a93')
             process_date = api_config.get('processDate', 'today')
             
             logger.info(f"デバイスベース処理: device={device_id}, date={process_date}")

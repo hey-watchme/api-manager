@@ -5,6 +5,7 @@ import Card from '../../../components/common/Card'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
 import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
 import aggregatorApiClient from '../../../services/AggregatorApiClient'
+import { DEFAULT_DEVICE_ID } from '../../../config/constants'
 
 function AggregatorModule() {
   const [apiStatus, setApiStatus] = useState('checking')
@@ -61,7 +62,7 @@ function AggregatorModule() {
           apiName="vibe-aggregator"
           displayName="Vibe Aggregator"
           disabled={apiStatus !== 'online'}
-          defaultDeviceId="m5core2_auto"
+          defaultDeviceId={DEFAULT_DEVICE_ID}
           showDeviceSelector={true}
           showDateSelector={true}
         />

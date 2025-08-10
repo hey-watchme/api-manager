@@ -118,15 +118,19 @@ export default function AutoProcessControl({
         </div>
       )}
       
-      <div className="text-xs text-blue-600">
-        処理実績 - 成功: {autoStatus.successCount}回 | エラー: {autoStatus.errorCount}回
-        {autoStatus.nextRun && (
-          <> | 次回実行: {new Date(autoStatus.nextRun).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</>
-        )}
-      </div>
-      <div className="text-xs text-gray-500 mt-1">
-        ※ 自動処理の成功/エラー回数は、実際にスケジュール実行された処理の結果を表示しています
-      </div>
+      {autoStatus.lastRun && (
+        <div className="text-xs text-gray-600 border-t pt-2 mt-2">
+          <div className="flex items-center justify-between">
+            <span>📊 最終処理: {new Date(autoStatus.lastRun).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</span>
+            {autoStatus.errorCount > 0 && (
+              <span className="text-red-600">エラー: {autoStatus.errorCount}回</span>
+            )}
+            {autoStatus.errorCount === 0 && autoStatus.successCount > 0 && (
+              <span className="text-green-600">✅ 成功</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
