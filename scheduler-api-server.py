@@ -35,7 +35,8 @@ app.add_middleware(
 )
 
 # 設定ファイルパス
-CONFIG_FILE = "/home/ubuntu/scheduler/config.json"
+# 環境変数で設定可能、デフォルトは /home/ubuntu/scheduler/config.json
+CONFIG_FILE = os.environ.get('CONFIG_FILE_PATH', '/home/ubuntu/scheduler/config.json')
 LOG_DIR = "/var/log/scheduler"
 
 # リクエストモデル

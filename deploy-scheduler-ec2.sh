@@ -87,30 +87,18 @@ echo ""
 print_info "コンテナを起動しています..."
 cd /home/ubuntu/watchme-api-manager
 
-# docker-compose.all.ymlでサービスが定義されているか確認
-if [ -f docker-compose.all.yml ] && grep -q "watchme-scheduler-prod:" docker-compose.all.yml; then
-    print_info "docker-composeを使用してコンテナを起動します..."
-    docker-compose -f docker-compose.all.yml up -d watchme-scheduler-prod
-elif [ -f docker-compose.all.yml ]; then
-    print_warning "docker-compose.all.ymlにwatchme-scheduler-prodサービスが定義されていません"
-    print_info "docker runを使用してコンテナを起動します..."
-    docker run -d \
-        --name ${CONTAINER_NAME} \
-        --env-file /home/ubuntu/watchme-api-manager/.env \
-        -v /home/ubuntu/scheduler:/home/ubuntu/scheduler \
-        -v /var/log/scheduler:/var/log/scheduler \
-        -p 8015:8015 \
-        ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest
-else
-    print_info "docker runを使用してコンテナを起動します..."
-    docker run -d \
-        --name ${CONTAINER_NAME} \
-        --env-file /home/ubuntu/watchme-api-manager/.env \
-        -v /home/ubuntu/scheduler:/home/ubuntu/scheduler \
-        -v /var/log/scheduler:/var/log/scheduler \
-        -p 8015:8015 \
-        ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest
-fi
+# 重要: ホストのディレクトリを直接マウントして、config.jsonの読み書きを可能にする
+print_info "docker runを使用してコンテナを起動します（ホストディレクトリを直接マウント）..."
+docker run -d \
+    --name ${CONTAINER_NAME} \
+    --env-file /home/ubuntu/watchme-api-manager/.env \
+    -e CONFIG_FILE_PATH=/home/ubuntu/scheduler/config.json \
+    -e DOCKER_CONTAINER=true \
+    -v /home/ubuntu/scheduler:/home/ubuntu/scheduler:rw \
+    -v /var/log/scheduler:/var/log/scheduler:rw \
+    -p 8015:8015 \
+    --restart unless-stopped \
+    ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest
 
 # 起動結果の確認
 if [ $? -eq 0 ]; then
@@ -170,13 +158,28 @@ echo "   デバイスID: 9f7d6e27-98c3-4c19-bdfb-f7fda58b9a93"
 echo "========================================="
 echo ""
 
-# 11. 設定ファイルの確認
+# 11. 設定ファイルの確認とテスト
 if [ -f /home/ubuntu/scheduler/config.json ]; then
     print_success "config.jsonが存在します"
     echo "現在のデバイスID設定:"
     cat /home/ubuntu/scheduler/config.json | jq -r '.apis[].deviceId' | sort -u | head -5
 else
     print_warning "config.jsonがまだ存在しません"
+    echo ""
+    print_info "config.jsonの書き込みテストを実行します..."
+    
+    # コンテナ内からconfig.jsonを作成できるかテスト
+    docker exec ${CONTAINER_NAME} bash -c "echo '{\"test\": true}' > /home/ubuntu/scheduler/test-write.json" 2>/dev/null
+    
+    if [ -f /home/ubuntu/scheduler/test-write.json ]; then
+        print_success "コンテナからホストディレクトリへの書き込みが可能です"
+        rm -f /home/ubuntu/scheduler/test-write.json
+    else
+        print_error "コンテナからホストディレクトリへの書き込みができません！"
+        echo "権限を修正します..."
+        sudo chown -R 1000:1000 /home/ubuntu/scheduler
+        sudo chmod 755 /home/ubuntu/scheduler
+    fi
     print_info "フロントエンドから設定を保存してください"
 fi
 echo ""

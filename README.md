@@ -56,6 +56,8 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 本アプリケーションは、UIを提供する「フロントエンド(React)」と、スケジューラー機能を担う「バックエンドAPI(Python)」の2つのサーバーで構成されています。詳細はリポジトリ内の各ソースコードを参照してください。
 
+**⚠️ 重要**: システムには3種類の異なるエンドポイントが存在します。詳細は [エンドポイントの3層構造を理解する](#-エンドポイントの3層構造を理解する重要) セクションを必ず参照してください。
+
 ### 🕐 スケジューラーの仕組み（2025年8月11日更新）
 
 #### 概要
@@ -495,7 +497,15 @@ chmod +x /home/ubuntu/connect-all-containers.sh
 
 ### デプロイ時によくある問題と対策
 
-#### 1. コンテナ間通信の問題
+#### 1. エンドポイントの混同による404エラー
+- **症状**: APIが404エラーを返す、または「Cannot GET /api/scheduler/api/scheduler/...」のような二重パスエラー
+- **原因**: 3種類のエンドポイント（管理用、実行用、公開用）を混同している
+- **解決策**: 
+  - [エンドポイントの3層構造](#-エンドポイントの3層構造を理解する重要) を理解する
+  - FastAPIは `/api/scheduler/` でリスンする必要がある（Nginxが `/scheduler/` → `/api/scheduler/` にプロキシするため）
+  - 各APIの実行エンドポイントはコンテナ名を使用（例: `http://api-transcriber:8001/fetch-and-transcribe`）
+
+#### 2. コンテナ間通信の問題
 - **症状**: スケジューラーから他のAPIを呼び出せない
 - **原因**: Linux環境では `host.docker.internal` が使用できない
 - **解決策**: 
@@ -540,15 +550,59 @@ chmod +x /home/ubuntu/connect-all-containers.sh
   - run_if_enabled.pyが実行可能か確認
   - config.jsonでAPIが有効になっているか確認
 
+### 🔍 エンドポイントの3層構造を理解する（重要）
+
+WatchMeシステムには**3種類の異なるエンドポイント**が存在し、それぞれ異なる役割を持っています。混同しないよう注意してください。
+
+#### 1️⃣ **スケジューラーAPI管理エンドポイント**
+- **用途**: API Managerのフロントエンドがスケジューラーの設定（ON/OFF、間隔等）を管理
+- **例**: `https://api.hey-watch.me/scheduler/status/whisper`
+- **内部パス**: FastAPIは `/api/scheduler/status/{api_name}` でリスン
+- **Nginxルーティング**: `/scheduler/` → `http://localhost:8015/api/scheduler/`
+- **定義場所**: `scheduler-api-server.py`
+
+#### 2️⃣ **各APIサービスの実行エンドポイント**
+- **用途**: スケジューラーが各APIを実際に実行する際に呼び出す
+- **例**: whisperなら `/fetch-and-transcribe`
+- **接続先**: `http://api-transcriber:8001/fetch-and-transcribe`（コンテナ間通信）
+- **定義場所**: `scheduler/run-api-process-docker.py` の `API_CONFIGS` 辞書
+- **注意**: コンテナ名を使用（localhostではない）
+
+#### 3️⃣ **Nginx公開エンドポイント**
+- **用途**: 外部（ブラウザ等）からAPIに直接アクセスする際のパス
+- **例**: `https://api.hey-watch.me/vibe-transcriber/`
+- **Nginxルーティング**: `/vibe-transcriber/` → `http://api-transcriber:8001/`
+- **定義場所**: Nginxサーバー設定（watchme-server-configs リポジトリ）
+
+#### 📊 エンドポイント相関図
+
+```
+[ブラウザ] 
+    ↓ ① スケジューラー設定を変更
+    https://api.hey-watch.me/scheduler/toggle/whisper
+    ↓
+[Nginx] → [scheduler-api-server:8015/api/scheduler/toggle/whisper]
+    ↓ config.json更新
+    ↓
+[cron] → [run_if_enabled.py] 
+    ↓ ② 定期実行時にAPIを呼び出し
+    ↓
+[run-api-process-docker.py]
+    ↓ http://api-transcriber:8001/fetch-and-transcribe
+    ↓
+[api-transcriber コンテナ] ← 実際の処理
+```
+
 ### 今後の実装・デプロイに向けた推奨事項
 
 1. **🚨 エンドポイント設定の確認（最重要）**
    - 新しいAPIを追加する際は、必ず上記の「コンテナ名とAPI対応表」を更新
    - `run-api-process-docker.py`と手動実行用のAPIクライアントのエンドポイントを一致させる
-   - **3つのファイルを必ず同期させる:**
-     - `/scheduler/run-api-process-docker.py` (Docker環境用)
-     - `/run-api-process.py` (ローカル環境用)
-     - `/src/services/*ApiClient.js` (フロントエンド用)
+   - **4つのファイルを必ず同期させる:**
+     - `/scheduler/run-api-process-docker.py` (Docker環境用) - ②のエンドポイント
+     - `/run-api-process.py` (ローカル環境用) - ②のエンドポイント
+     - `/src/services/*ApiClient.js` (フロントエンド用) - ①のエンドポイント
+     - Nginx設定 (watchme-server-configs) - ③のエンドポイント
 
 2. **デプロイスクリプトの活用**
    - `deploy-frontend.sh` と `deploy-scheduler.sh` を使用してECRへのプッシュを自動化

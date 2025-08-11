@@ -35,7 +35,8 @@ app.add_middleware(
 )
 
 # 設定ファイルパス（Docker環境用）
-CONFIG_FILE = "/app/config/config.json"
+# 環境変数で設定可能、デフォルトは /home/ubuntu/scheduler/config.json
+CONFIG_FILE = os.environ.get('CONFIG_FILE_PATH', '/home/ubuntu/scheduler/config.json')
 LOG_DIR = "/var/log/scheduler"
 CRON_FILE = "/etc/cron.d/watchme-scheduler"
 
