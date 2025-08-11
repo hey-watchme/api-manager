@@ -269,13 +269,29 @@ git remote prune origin
 
 本アプリケーションのデプロイは、ECR (Elastic Container Registry) を利用して行います。フロントエンドとスケジューラーAPIは、それぞれ別のDockerイメージとしてビルドされ、EC2上でコンテナとして実行されます。
 
+#### 🚀 クイックデプロイ（推奨）
+
+デプロイ作業を簡略化するため、専用のスクリプトを用意しています：
+
+```bash
+# 1. ローカルでイメージをビルドしてECRへプッシュ
+./deploy-frontend.sh        # フロントエンドのデプロイ
+./deploy-scheduler.sh       # スケジューラーAPIのデプロイ
+
+# 2. EC2サーバーでコンテナを展開（SSH接続して実行）
+ssh -i ~/watchme-key.pem ubuntu@3.24.16.82
+cd /home/ubuntu/watchme-api-manager
+./deploy-frontend-ec2.sh   # フロントエンドコンテナの展開
+./deploy-scheduler-ec2.sh  # スケジューラーコンテナの展開
+```
+
 #### デプロイの基本的な流れ
 
 1.  **イメージのビルド**: ローカルで `docker build` を実行し、本番用のDockerイメージを作成します。
 2.  **ECRへのプッシュ**: 作成したイメージをECRにプッシュします。
 3.  **サーバーでの実行**: EC2サーバー上で、ECRから最新のイメージをプルし、`docker-compose` を使ってコンテナを起動します。
 
-#### 具体的な手順
+#### 手動デプロイ手順（詳細）
 
 ##### 1️⃣ ローカルでのイメージビルドとECRへのプッシュ
 ```bash
@@ -292,7 +308,7 @@ git remote prune origin
 ssh -i ~/watchme-key.pem ubuntu@3.24.16.82
 ```
 
-##### 3️⃣ EC2サーバーでのコンテナ起動
+##### 3️⃣ EC2サーバーでのコンテナ起動（手動実行の場合）
 ```bash
 # ECRにログイン
 aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com
@@ -313,6 +329,23 @@ docker-compose -f docker-compose.all.yml up -d
 docker network connect watchme-network watchme-api-manager-prod
 docker network connect watchme-network watchme-scheduler-prod
 ```
+
+#### デプロイスクリプトの機能
+
+**deploy-frontend-ec2.sh** の主な機能：
+- ECRから最新イメージを自動プル
+- 既存コンテナの安全な停止・削除
+- docker-compose.prod.ymlを使用した起動
+- watchme-networkへの自動接続
+- ヘルスチェックとステータス確認
+
+**deploy-scheduler-ec2.sh** の主な機能：
+- ECRから最新イメージを自動プル
+- 必要なディレクトリとログ権限の設定
+- 環境変数ファイル(.env)の確認
+- watchme-networkへの自動接続
+- config.json生成の案内とテストコマンドの提供
+- cron設定の手動更新手順の提示
 
 #### ⚠️ **デプロイ時の重要な注意点**
 
