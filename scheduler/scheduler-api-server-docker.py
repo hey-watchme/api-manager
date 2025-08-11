@@ -119,45 +119,37 @@ def calculate_next_run(interval_hours: int) -> str:
     return next_run.isoformat()
 
 def update_cron_jobs(config: Dict):
-    """cron設定を更新（Docker環境用）"""
+    """
+    cron設定を更新する代わりに、設定が更新されたことをログに記録する。
+    実際のcronジョブはホストOS側で静的に管理される。
+    """
     try:
-        cron_lines = []
+        # 設定更新のログを出力
+        logger.info("設定ファイルが更新されました。cronジョブはホストOS側で固定スケジュールにて管理されます。")
         
-        # Docker環境では、ホストのcronから実行するため、
-        # EC2ホスト上のパスを使用
+        # 有効なAPIの一覧をログに出力
+        enabled_apis = []
+        disabled_apis = []
+        
         for api_name, settings in config["apis"].items():
             if settings.get("enabled", False):
-                interval = settings.get("interval", 3)
-                cron_expr = f"0 */{interval} * * *"
-                
-                # Docker execコマンドを使用してコンテナ内のスクリプトを実行
-                cmd = f"docker exec watchme-scheduler-prod python /app/run-api-process-docker.py {api_name}"
-                log_file = f"/var/log/scheduler/scheduler-{api_name}.log"
-                
-                cron_lines.append(
-                    f"{cron_expr} ubuntu {cmd} >> {log_file} 2>&1"
-                )
+                enabled_apis.append(api_name)
+            else:
+                disabled_apis.append(api_name)
         
-        # crontabファイル作成
-        cron_content = "\n".join(cron_lines) + "\n" if cron_lines else ""
+        if enabled_apis:
+            logger.info(f"有効なAPI: {', '.join(enabled_apis)}")
+        if disabled_apis:
+            logger.info(f"無効なAPI: {', '.join(disabled_apis)}")
         
-        # Dockerコンテナ内から直接cron設定ファイルに書き込み
-        with open(CRON_FILE, "w") as f:
-            f.write(cron_content)
-        
-        # ファイル権限設定
-        os.chmod(CRON_FILE, 0o644)
-        
-        logger.info("cron設定を更新しました")
-        logger.info(f"cron内容:\n{cron_content}")
+        # エラーを発生させず、常に成功を返す
+        return True
         
     except Exception as e:
-        logger.error(f"cron更新エラー: {e}")
-        # 権限エラーの場合は警告のみ
-        if "Permission denied" in str(e):
-            logger.warning("cron設定の更新には適切な権限が必要です。ホスト側で手動設定してください。")
-        else:
-            raise HTTPException(status_code=500, detail="cron設定の更新に失敗しました")
+        logger.error(f"設定更新エラー: {e}")
+        # エラーが発生しても500エラーは返さない
+        logger.warning("設定の更新中にエラーが発生しましたが、処理を継続します。")
+        return True
 
 # API エンドポイント
 @app.get("/")

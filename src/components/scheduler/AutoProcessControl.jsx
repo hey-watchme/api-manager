@@ -50,23 +50,21 @@ export default function AutoProcessControl({
     }
   }
 
-  // 実行間隔変更
-  const handleIntervalChange = async (newInterval) => {
-    setLoading(true)
-    try {
-      await schedulerApiClient.toggle(apiName, {
-        ...autoStatus,
-        interval: parseInt(newInterval)
-      })
-      
-      await loadAutoStatus() // 最新状況を再取得
-    } catch (error) {
-      console.error('間隔変更エラー:', error)
-      alert('設定の更新に失敗しました: ' + error.message)
-    } finally {
-      setLoading(false)
+  // 実行時刻の定義（固定スケジュール）
+  const getScheduleInfo = (apiName) => {
+    const schedules = {
+      'whisper': { time: '毎時10分', frequency: '毎時間' },
+      'behavior-features': { time: '毎時10分', frequency: '毎時間' },
+      'vibe-aggregator': { time: '毎時20分', frequency: '毎時間' },
+      'behavior-aggregator': { time: '毎時20分', frequency: '毎時間' },
+      'emotion-features': { time: '毎時20分', frequency: '毎時間' },
+      'emotion-aggregator': { time: '毎時30分', frequency: '毎時間' },
+      'vibe-scorer': { time: '30分', frequency: '3時間ごと (0:30, 3:30, 6:30, 9:30, 12:30, 15:30, 18:30, 21:30)' }
     }
+    return schedules[apiName] || { time: '未設定', frequency: '未設定' }
   }
+
+  const scheduleInfo = getScheduleInfo(apiName)
 
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -76,38 +74,24 @@ export default function AutoProcessControl({
             🤖 {displayName} 自動処理
           </h5>
           <p className="text-sm text-blue-600">
-            {autoStatus.enabled ? '有効' : '無効'} | 
-            0時起点で{autoStatus.interval}時間ごと（JST）
-            {autoStatus.lastRun && (
-              <> | 最終実行: {new Date(autoStatus.lastRun).toLocaleString('ja-JP')}</>
-            )}
+            {autoStatus.enabled ? '✅ 有効' : '⏸️ 無効'}
+          </p>
+          <p className="text-xs text-gray-600 mt-1">
+            📅 実行時刻: {scheduleInfo.time} ({scheduleInfo.frequency})
           </p>
         </div>
         
         <div className="flex items-center space-x-3">
-          <select 
-            value={autoStatus.interval}
-            onChange={(e) => handleIntervalChange(e.target.value)}
-            disabled={disabled || loading}
-            className="text-sm border rounded px-2 py-1 disabled:bg-gray-100"
-          >
-            <option value={1}>1時間</option>
-            <option value={3}>3時間</option>
-            <option value={6}>6時間</option>
-            <option value={12}>12時間</option>
-            <option value={24}>24時間</option>
-          </select>
-          
           <button
             onClick={handleToggle}
             disabled={disabled || loading}
-            className={`px-3 py-1 rounded text-sm font-medium disabled:opacity-50 ${
+            className={`px-4 py-2 rounded text-sm font-medium disabled:opacity-50 ${
               autoStatus.enabled 
-                ? 'bg-green-100 text-green-800 border border-green-300' 
-                : 'bg-gray-100 text-gray-600 border border-gray-300'
+                ? 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200' 
+                : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
             }`}
           >
-            {loading ? '...' : (autoStatus.enabled ? '🟢 ON' : '⚪ OFF')}
+            {loading ? '処理中...' : (autoStatus.enabled ? '🟢 有効' : '⚪ 無効')}
           </button>
         </div>
       </div>

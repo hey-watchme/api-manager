@@ -132,44 +132,37 @@ def calculate_next_run(interval_hours: int) -> str:
     return next_run.isoformat()
 
 def update_cron_jobs(config: Dict):
-    """cron設定を更新"""
+    """
+    cron設定を更新する代わりに、設定が更新されたことをログに記録する。
+    実際のcronジョブはホストOS側で静的に管理される。
+    """
     try:
-        cron_lines = []
+        # 設定更新のログを出力
+        logger.info("設定ファイルが更新されました。cronジョブはホストOS側で固定スケジュールにて管理されます。")
+        
+        # 有効なAPIの一覧をログに出力
+        enabled_apis = []
+        disabled_apis = []
         
         for api_name, settings in config["apis"].items():
             if settings.get("enabled", False):
-                interval = settings.get("interval", 3)
-                cron_expr = f"0 */{interval} * * *"
-                
-                # スケジューラー実行コマンド
-                cmd = f"/home/ubuntu/scheduler/run-api-process.py {api_name}"
-                log_file = get_api_log_file(api_name)
-                
-                cron_lines.append(
-                    f"{cron_expr} ubuntu {cmd} >> {log_file} 2>&1"
-                )
+                enabled_apis.append(api_name)
+            else:
+                disabled_apis.append(api_name)
         
-        # crontabファイル作成
-        cron_content = "\n".join(cron_lines) + "\n" if cron_lines else ""
+        if enabled_apis:
+            logger.info(f"有効なAPI: {', '.join(enabled_apis)}")
+        if disabled_apis:
+            logger.info(f"無効なAPI: {', '.join(disabled_apis)}")
         
-        with open("/tmp/watchme-scheduler", "w") as f:
-            f.write(cron_content)
-        
-        # crontabに設定
-        if cron_lines:
-            subprocess.run([
-                "sudo", "cp", "/tmp/watchme-scheduler", "/etc/cron.d/watchme-scheduler"
-            ], check=True)
-            subprocess.run(["sudo", "chmod", "644", "/etc/cron.d/watchme-scheduler"], check=True)
-        else:
-            # 設定が空の場合はcronファイルを削除
-            subprocess.run(["sudo", "rm", "-f", "/etc/cron.d/watchme-scheduler"], check=False)
-        
-        logger.info("cron設定を更新しました")
+        # エラーを発生させず、常に成功を返す
+        return True
         
     except Exception as e:
-        logger.error(f"cron更新エラー: {e}")
-        raise HTTPException(status_code=500, detail="cron設定の更新に失敗しました")
+        logger.error(f"設定更新エラー: {e}")
+        # エラーが発生しても500エラーは返さない
+        logger.warning("設定の更新中にエラーが発生しましたが、処理を継続します。")
+        return True
 
 # API エンドポイント
 @app.get("/")

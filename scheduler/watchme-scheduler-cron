@@ -1,0 +1,28 @@
+# WatchMe API Scheduler - 負荷分散対応 (手動設定)
+# このファイルは手動でのみ編集すること。
+# 
+# 設置方法:
+# 1. このファイルをEC2サーバーにコピー
+# 2. sudo cp watchme-scheduler-cron /etc/cron.d/watchme-scheduler
+# 3. sudo chmod 644 /etc/cron.d/watchme-scheduler
+#
+# 実行時刻の説明:
+# - 毎時10分: whisper (音声書き起こし), behavior-features (行動特徴抽出)
+# - 毎時20分: vibe-aggregator (心理プロンプト生成), behavior-aggregator (行動集計), emotion-features (感情特徴抽出)
+# - 毎時30分: emotion-aggregator (感情集計)
+# - 3時間ごとの30分: vibe-scorer (心理スコアリング) - コスト削減のため頻度を下げる
+
+# 毎時10分 - ファイルベース処理（第1グループ）
+10 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py whisper >> /var/log/scheduler/cron.log 2>&1
+10 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py behavior-features >> /var/log/scheduler/cron.log 2>&1
+
+# 毎時20分 - デバイスベース処理と追加のファイルベース処理（第2グループ）
+20 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py vibe-aggregator >> /var/log/scheduler/cron.log 2>&1
+20 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py behavior-aggregator >> /var/log/scheduler/cron.log 2>&1
+20 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py emotion-features >> /var/log/scheduler/cron.log 2>&1
+
+# 毎時30分 - デバイスベース処理（第3グループ）
+30 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py emotion-aggregator >> /var/log/scheduler/cron.log 2>&1
+
+# 3時間ごとの30分 (0:30, 3:30, 6:30, 9:30, 12:30, 15:30, 18:30, 21:30) - コスト削減
+30 */3 * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py vibe-scorer >> /var/log/scheduler/cron.log 2>&1
