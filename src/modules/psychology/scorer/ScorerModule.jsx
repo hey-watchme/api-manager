@@ -4,6 +4,7 @@ import ScorerResults from './ScorerResults'
 import Card from '../../../components/common/Card'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
 import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
+import DeviceProcessingProgress from '../../../components/common/DeviceProcessingProgress'
 import scorerApiClient from '../../../services/ScorerApiClient'
 import { DEFAULT_DEVICE_ID } from '../../../config/constants'
 
@@ -12,24 +13,41 @@ function ScorerModule() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  
+  // 全デバイス処理用の状態
+  const [processingDevices, setProcessingDevices] = useState([])
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState(0)
+  const [isProcessingAllDevices, setIsProcessingAllDevices] = useState(false)
 
   useEffect(() => {
     // CORS対応済みAPIなので、直接オンライン状態に設定
     setApiStatus('online')
   }, [])
 
-  const handleSubmit = async (data) => {
+  const handleSubmit = async (date) => {
     setLoading(true)
+    setIsProcessingAllDevices(true)
     setError(null)
     setResult(null)
+    setProcessingDevices([])
+    setCurrentDeviceIndex(0)
 
     try {
-      const response = await scorerApiClient.analyzeVibeGraph(data.deviceId, data.date)
+      const response = await scorerApiClient.analyzeAllDevices(
+        date,
+        (devices, currentIndex, processing) => {
+          setProcessingDevices(devices)
+          setCurrentDeviceIndex(currentIndex)
+          // processing状態は個別デバイスの処理中を表す
+        }
+      )
+      
       setResult(response)
     } catch (error) {
       setError(error.message || 'スコアリングに失敗しました')
     } finally {
       setLoading(false)
+      setIsProcessingAllDevices(false)
     }
   }
 
@@ -62,9 +80,6 @@ function ScorerModule() {
           apiName="vibe-scorer"
           displayName="Vibe Scorer"
           disabled={apiStatus !== 'online'}
-          defaultDeviceId={DEFAULT_DEVICE_ID}
-          showDeviceSelector={true}
-          showDateSelector={true}
         />
       </div>
 
@@ -74,9 +89,20 @@ function ScorerModule() {
         
         <ScorerForm 
           onSubmit={handleSubmit} 
-          loading={loading}
+          loading={loading || isProcessingAllDevices}
           disabled={apiStatus !== 'online'}
         />
+        
+        {/* 全デバイス処理の進捗表示 */}
+        {isProcessingAllDevices && processingDevices.length > 0 && (
+          <div className="mt-6">
+            <DeviceProcessingProgress
+              devices={processingDevices}
+              currentIndex={currentDeviceIndex}
+              processing={loading}
+            />
+          </div>
+        )}
         
         {error && (
           <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
@@ -84,7 +110,7 @@ function ScorerModule() {
           </div>
         )}
         
-        {result && (
+        {result && !isProcessingAllDevices && (
           <div className="mt-6">
             <ScorerResults result={result} />
           </div>

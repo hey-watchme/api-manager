@@ -4,6 +4,7 @@ import EmotionAggregatorForm from './EmotionAggregatorForm'
 import EmotionAggregatorResults from './EmotionAggregatorResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
 import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
+import DeviceProcessingProgress from '../../../components/common/DeviceProcessingProgress'
 import emotionAggregatorApiClient from '../../../services/EmotionAggregatorApiClient'
 import { DEFAULT_DEVICE_ID } from '../../../config/constants'
 
@@ -12,24 +13,41 @@ export default function EmotionAggregatorModule() {
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState(null)
   const [error, setError] = useState(null)
+  
+  // 全デバイス処理用の状態
+  const [processingDevices, setProcessingDevices] = useState([])
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState(0)
+  const [isProcessingAllDevices, setIsProcessingAllDevices] = useState(false)
 
   useEffect(() => {
     // CORS対応済みAPIなので、直接オンライン状態に設定
     setApiStatus('online')
   }, [])
 
-  const handleSubmit = async (deviceId, date) => {
+  const handleSubmit = async (date) => {
     setLoading(true)
+    setIsProcessingAllDevices(true)
     setError(null)
     setResults(null)
+    setProcessingDevices([])
+    setCurrentDeviceIndex(0)
 
     try {
-      const response = await emotionAggregatorApiClient.analyzeEmotions(deviceId, date)
+      const response = await emotionAggregatorApiClient.analyzeAllDevices(
+        date,
+        (devices, currentIndex, processing) => {
+          setProcessingDevices(devices)
+          setCurrentDeviceIndex(currentIndex)
+          // processing状態は個別デバイスの処理中を表す
+        }
+      )
+      
       setResults(response)
     } catch (err) {
       setError(err.message || 'エラーが発生しました')
     } finally {
       setLoading(false)
+      setIsProcessingAllDevices(false)
     }
   }
 
@@ -62,9 +80,6 @@ export default function EmotionAggregatorModule() {
           apiName="emotion-aggregator"
           displayName="Emotion Aggregator"
           disabled={apiStatus !== 'online'}
-          defaultDeviceId={DEFAULT_DEVICE_ID}
-          showDeviceSelector={true}
-          showDateSelector={true}
         />
       </div>
 
@@ -74,9 +89,20 @@ export default function EmotionAggregatorModule() {
         
         <EmotionAggregatorForm 
           onSubmit={handleSubmit}
-          loading={loading}
+          loading={loading || isProcessingAllDevices}
           disabled={apiStatus !== 'online'}
         />
+        
+        {/* 全デバイス処理の進捗表示 */}
+        {isProcessingAllDevices && processingDevices.length > 0 && (
+          <div className="mt-6">
+            <DeviceProcessingProgress
+              devices={processingDevices}
+              currentIndex={currentDeviceIndex}
+              processing={loading}
+            />
+          </div>
+        )}
         
         {error && (
           <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
@@ -84,7 +110,7 @@ export default function EmotionAggregatorModule() {
           </div>
         )}
 
-        {results && (
+        {results && !isProcessingAllDevices && (
           <div className="mt-6">
             <EmotionAggregatorResults results={results} />
           </div>

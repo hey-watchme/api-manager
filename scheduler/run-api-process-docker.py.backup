@@ -162,43 +162,6 @@ def load_scheduler_config() -> dict:
         logger.error(f"設定ファイル読み込みエラー: {e}")
     return {}
 
-def get_all_device_ids_for_date(process_date: str, api_logger=None) -> list:
-    """指定日付の全デバイスIDを取得"""
-    log = api_logger or logger
-    try:
-        supabase = get_supabase_client()
-        
-        # process_dateが"today"の場合はJSTでの今日の日付に変換
-        if process_date == "today":
-            jst_now = datetime.now(JST)
-            process_date = jst_now.strftime("%Y-%m-%d")
-        
-        # audio_filesテーブルから指定日付のユニークなdevice_idを取得
-        # created_atフィールドを使用して日付でフィルタリング
-        start_date = f"{process_date}T00:00:00"
-        end_date = f"{process_date}T23:59:59"
-        
-        response = supabase.table('audio_files') \
-            .select('device_id') \
-            .gte('created_at', start_date) \
-            .lte('created_at', end_date) \
-            .execute()
-        
-        if response.data:
-            # ユニークなdevice_idのリストを作成
-            device_ids = list(set([item['device_id'] for item in response.data if item.get('device_id')]))
-            log.info(f"日付 {process_date} で {len(device_ids)} 個のデバイスIDを取得")
-            return device_ids
-        else:
-            log.info(f"日付 {process_date} にはデータが存在しません")
-            return []
-            
-    except Exception as e:
-        log.error(f"デバイスID取得エラー: {e}")
-        # エラー時はフォールバック値を返す
-        log.warning(f"フォールバック: デフォルトデバイスIDを使用")
-        return [DEFAULT_DEVICE_ID]
-
 def call_device_based_api(api_name: str, device_id: str, process_date: str, api_logger=None) -> bool:
     """デバイスベースのAPI呼び出し（vibe-aggregator等）"""
     log = api_logger or logger
@@ -335,66 +298,22 @@ def main():
         api_type = config.get('type', 'file_based')
         
         if api_type == 'device_based':
-            # デバイスベースのAPI処理（全デバイス対応）
+            # デバイスベースのAPI処理
             scheduler_config = load_scheduler_config()
             api_config = scheduler_config.get('apis', {}).get(api_name, {})
             
-            # config.jsonから日付設定を取得（デフォルトは'today'）
+            device_id = api_config.get('deviceId', DEFAULT_DEVICE_ID)
             process_date = api_config.get('processDate', 'today')
             
-            # process_dateが"today"の場合はJSTでの今日の日付に変換
-            if process_date == "today":
-                jst_now = datetime.now(JST)
-                process_date = jst_now.strftime("%Y-%m-%d")
+            api_logger.info(f"デバイスベース処理: device={device_id}, date={process_date}")
             
-            api_logger.info(f"=== 全デバイス処理開始: date={process_date} ===")
+            # API実行
+            success = call_device_based_api(api_name, device_id, process_date, api_logger)
             
-            # 指定日付の全デバイスIDを取得
-            device_ids = get_all_device_ids_for_date(process_date, api_logger)
-            
-            if not device_ids:
-                api_logger.warning(f"日付 {process_date} にはデータが存在するデバイスがありません")
-                log_execution(api_name, 0, "SUCCESS", f"処理対象デバイスなし (date: {process_date})", api_logger)
-                return
-            
-            api_logger.info(f"処理対象デバイス数: {len(device_ids)}")
-            api_logger.info(f"デバイスID一覧: {device_ids}")
-            
-            # 各デバイスを順次処理
-            success_count = 0
-            failed_count = 0
-            
-            for idx, device_id in enumerate(device_ids, 1):
-                api_logger.info(f"")
-                api_logger.info(f"--- デバイス {idx}/{len(device_ids)}: {device_id} ---")
-                
-                # API実行
-                success = call_device_based_api(api_name, device_id, process_date, api_logger)
-                
-                if success:
-                    success_count += 1
-                    api_logger.info(f"✅ デバイス {device_id} の処理完了")
-                else:
-                    failed_count += 1
-                    api_logger.error(f"❌ デバイス {device_id} の処理失敗")
-            
-            # 全体の処理結果をログ出力
-            api_logger.info(f"")
-            api_logger.info(f"=== 全デバイス処理完了 ===")
-            api_logger.info(f"成功: {success_count}/{len(device_ids)} デバイス")
-            if failed_count > 0:
-                api_logger.warning(f"失敗: {failed_count}/{len(device_ids)} デバイス")
-            
-            # 実行ログ記録
-            if failed_count == 0:
-                log_execution(api_name, len(device_ids), "SUCCESS", 
-                            f"全デバイス処理完了 ({success_count}デバイス, date: {process_date})", api_logger)
-            elif success_count > 0:
-                log_execution(api_name, len(device_ids), "PARTIAL", 
-                            f"一部成功 (成功: {success_count}, 失敗: {failed_count}, date: {process_date})", api_logger)
+            if success:
+                log_execution(api_name, 1, "SUCCESS", f"処理完了 (device: {device_id})", api_logger)
             else:
-                log_execution(api_name, len(device_ids), "ERROR", 
-                            f"全デバイス処理失敗 ({failed_count}デバイス, date: {process_date})", api_logger)
+                log_execution(api_name, 1, "ERROR", f"処理失敗 (device: {device_id})", api_logger)
                 sys.exit(1)
         else:
             # ファイルベースのAPI処理（既存の処理）

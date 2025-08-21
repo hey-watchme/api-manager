@@ -5,10 +5,7 @@ import { DEFAULT_DEVICE_ID } from '../../config/constants'
 export default function AutoProcessControlWithParams({ 
   apiName, 
   displayName = apiName,
-  disabled = false,
-  defaultDeviceId = DEFAULT_DEVICE_ID,
-  showDeviceSelector = true,
-  showDateSelector = true
+  disabled = false
 }) {
   const [autoStatus, setAutoStatus] = useState({
     enabled: false,
@@ -18,7 +15,6 @@ export default function AutoProcessControlWithParams({
     isRunning: false,
     successCount: 0,
     errorCount: 0,
-    deviceId: defaultDeviceId,
     processDate: 'today' // 'today' を特別な値として扱う
   })
   const [loading, setLoading] = useState(false)
@@ -29,7 +25,6 @@ export default function AutoProcessControlWithParams({
       const data = await schedulerApiClient.getStatus(apiName)
       setAutoStatus({
         ...data,
-        deviceId: data.deviceId || defaultDeviceId,
         processDate: data.processDate || 'today'
       })
     } catch (error) {
@@ -49,7 +44,6 @@ export default function AutoProcessControlWithParams({
       await schedulerApiClient.toggle(apiName, {
         ...autoStatus,
         enabled: !autoStatus.enabled,
-        deviceId: autoStatus.deviceId,
         processDate: autoStatus.processDate
       })
       
@@ -76,26 +70,6 @@ export default function AutoProcessControlWithParams({
     return schedules[apiName] || { time: '未設定', frequency: '未設定' }
   }
 
-  // デバイスID変更
-  const handleDeviceChange = async (newDeviceId) => {
-    setAutoStatus(prev => ({ ...prev, deviceId: newDeviceId }))
-    
-    if (autoStatus.enabled) {
-      setLoading(true)
-      try {
-        await schedulerApiClient.toggle(apiName, {
-          ...autoStatus,
-          deviceId: newDeviceId
-        })
-        await loadAutoStatus()
-      } catch (error) {
-        console.error('デバイスID変更エラー:', error)
-        alert('設定の更新に失敗しました: ' + error.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-  }
 
   const scheduleInfo = getScheduleInfo(apiName)
 
@@ -132,28 +106,19 @@ export default function AutoProcessControlWithParams({
       {/* パラメータ設定セクション */}
       <div className="bg-white rounded p-3 mb-3 border border-blue-100">
         <div className="grid grid-cols-2 gap-3">
-          {showDeviceSelector && (
-            <div>
-              <label className="text-xs text-gray-600 block mb-1">デバイスID</label>
-              <input
-                type="text"
-                value={autoStatus.deviceId}
-                onChange={(e) => handleDeviceChange(e.target.value)}
-                disabled={disabled || loading}
-                className="w-full text-sm border rounded px-2 py-1 disabled:bg-gray-100"
-                placeholder={DEFAULT_DEVICE_ID}
-              />
+          <div>
+            <label className="text-xs text-gray-600 block mb-1">処理対象</label>
+            <div className="text-sm border rounded px-2 py-1 bg-blue-50 text-blue-800 font-medium">
+              📱 全デバイス
             </div>
-          )}
+          </div>
           
-          {showDateSelector && (
-            <div>
-              <label className="text-xs text-gray-600 block mb-1">処理日付</label>
-              <div className="text-sm border rounded px-2 py-1 bg-gray-50">
-                {new Date().toLocaleDateString('ja-JP')}（自動更新）
-              </div>
+          <div>
+            <label className="text-xs text-gray-600 block mb-1">処理日付</label>
+            <div className="text-sm border rounded px-2 py-1 bg-gray-50">
+              {new Date().toLocaleDateString('ja-JP')}（自動更新）
             </div>
-          )}
+          </div>
         </div>
       </div>
       
