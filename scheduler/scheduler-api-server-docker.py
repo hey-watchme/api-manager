@@ -207,7 +207,18 @@ async def toggle_api_scheduler(api_name: str, scheduler_config: SchedulerConfig)
     if scheduler_config.deviceId is not None:
         api_settings["deviceId"] = scheduler_config.deviceId
     if scheduler_config.processDate is not None:
-        api_settings["processDate"] = scheduler_config.processDate
+        # processDateの検証: 固定日付が来た場合は"today"に変換
+        process_date = scheduler_config.processDate
+        if process_date != "today":
+            try:
+                from datetime import datetime as dt
+                dt.strptime(process_date, "%Y-%m-%d")
+                # 固定日付の場合は"today"に変換
+                logger.warning(f"{api_name}: 固定日付 {process_date} を 'today' に変換")
+                process_date = "today"
+            except:
+                pass
+        api_settings["processDate"] = process_date
     
     config["apis"][api_name] = api_settings
     

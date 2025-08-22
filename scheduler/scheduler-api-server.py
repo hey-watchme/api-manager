@@ -211,6 +211,20 @@ async def toggle_api_scheduler(api_name: str, scheduler_config: SchedulerConfig)
     """自動処理ON/OFF切り替え"""
     config = load_config()
     
+    # processDateの検証: 固定日付が来た場合は"today"に変換
+    process_date = scheduler_config.processDate
+    if process_date and process_date != "today":
+        # YYYY-MM-DD形式の日付が来た場合は"today"に変換
+        try:
+            from datetime import datetime
+            datetime.strptime(process_date, "%Y-%m-%d")
+            # 固定日付の場合は"today"に変換
+            logger.warning(f"{api_name}: 固定日付 {process_date} を 'today' に変換")
+            process_date = "today"
+        except:
+            # パースできない場合はそのまま使用
+            pass
+    
     # API設定更新
     config["apis"][api_name] = {
         "enabled": scheduler_config.enabled,
@@ -218,7 +232,7 @@ async def toggle_api_scheduler(api_name: str, scheduler_config: SchedulerConfig)
         "timeout": scheduler_config.timeout,
         "max_files": scheduler_config.max_files,
         "deviceId": scheduler_config.deviceId,
-        "processDate": scheduler_config.processDate,
+        "processDate": process_date,
         "updated_at": datetime.now().isoformat()
     }
     
