@@ -62,8 +62,9 @@ logging.basicConfig(
 )
 
 # 環境変数からSupabase設定取得
-SUPABASE_URL = os.getenv('SUPABASE_URL')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+# VITE_プレフィックス付きも考慮（フロントエンドと共通の.envファイルを使用するため）
+SUPABASE_URL = os.getenv('SUPABASE_URL') or os.getenv('VITE_SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY') or os.getenv('VITE_SUPABASE_KEY')
 
 # API設定
 # 注意: Dockerコンテナ間通信では、コンテナ名を使用する

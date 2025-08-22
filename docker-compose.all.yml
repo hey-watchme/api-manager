@@ -31,8 +31,9 @@ services:
     ports:
       - "8015:8015"
     environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
+      # VITE_プレフィックス付きの環境変数をSUPABASE_URLとして渡す
+      - SUPABASE_URL=${VITE_SUPABASE_URL}
+      - SUPABASE_KEY=${VITE_SUPABASE_KEY}
     volumes:
       - scheduler-config:/app/config
       - scheduler-logs:/var/log/scheduler
