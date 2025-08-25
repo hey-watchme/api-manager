@@ -6,6 +6,7 @@ import ScorerModule from './modules/psychology/scorer/ScorerModule'
 import BehaviorFeaturesModule from './modules/behavior/behavior-features/BehaviorFeaturesModule'
 import BehaviorAggregatorModule from './modules/behavior/aggregator/BehaviorAggregatorModule'
 import EmotionPage from './pages/EmotionPage'
+import AudioFilesPage from './pages/AudioFilesPage'
 
 // ページコンポーネント
 function PsychologyPage() {
@@ -63,7 +64,8 @@ function Navigation() {
   const navItems = [
     { path: '/vibe', label: '🧠 心理グラフ', disabled: false },
     { path: '/behavior', label: '🏃 行動グラフ', disabled: false },
-    { path: '/emotion', label: '😊 感情グラフ', disabled: false }
+    { path: '/emotion', label: '😊 感情グラフ', disabled: false },
+    { path: '/audio', label: '🎵 オーディオファイル', disabled: false }
   ]
 
   return (
@@ -117,6 +119,7 @@ function AppContent() {
           <Route path="/vibe" element={<PsychologyPage />} />
           <Route path="/behavior" element={<BehaviorPage />} />
           <Route path="/emotion" element={<EmotionPage />} />
+          <Route path="/audio" element={<AudioFilesPage />} />
         </Routes>
       </main>
     </div>

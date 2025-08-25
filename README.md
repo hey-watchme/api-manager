@@ -8,11 +8,18 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 **開発環境**: http://localhost:9001  
 **GitHubリポジトリ**: https://github.com/matsumotokaya/watchme-api-manager
 
-### 📊 本番環境デプロイ状況（2025年8月22日更新）
+### 📊 本番環境デプロイ状況（2025年8月25日更新）
 
-✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です（全デバイス対応実装済み）
+✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です（オーディオファイル機能実装完了）
 
-#### 🆕 最新アップデート（2025年8月22日）
+#### 🆕 最新アップデート（2025年8月25日）
+- **🎵 オーディオファイル機能実装**: 音声ファイルの一覧表示・再生・ダウンロード機能を追加
+- **🔍 高度なフィルタリング**: local_dateベースの日付絞り込み + 3つの独立ステータスフィルター
+- **👨‍💻 開発者フレンドリーUI**: データベースカラム名をそのまま表示（device_id, local_date, time_block等）
+- **⚡ VaultAPI連携**: 署名付きURL生成による安全な音声ファイルアクセス
+- **📱 レスポンシブ対応**: モバイル・デスクトップ両対応の完全なUI実装
+
+#### 過去のアップデート（2025年8月22日）
 - **🔧 環境変数の統一**: VITE_プレフィックス付き環境変数の自動認識を実装
 - **✅ 全デバイス処理の修正**: スケジューラーが正しく全デバイスを処理するよう修正完了
 - **📊 動作確認済み**: 2025年8月21日のデータで3デバイスの処理を確認
@@ -60,6 +67,101 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 - **[心理] スコアリング** - デバイスベース自動処理
 - **[行動] 音声イベント集計** - デバイスベース自動処理
 - **[感情] 感情スコア集計** - デバイスベース自動処理
+
+---
+
+## 🎵 オーディオファイル機能（2025年8月25日実装）
+
+### 概要
+
+オーディオファイル機能は、WatchMeプラットフォームで録音された音声ファイルの一覧表示・再生・ダウンロードを可能にする新機能です。VaultAPIと連携し、署名付きURLによる安全なファイルアクセスを提供します。
+
+**アクセスURL**: https://api.hey-watch.me/manager/audio
+
+### 主要機能
+
+#### 📋 ファイル一覧表示
+- **データベース連携**: VaultAPIを通じてリアルタイムでファイル情報を取得
+- **カラム表示**: `device_id`, `file_size_bytes`, `local_date`, `time_block`, `status`
+- **ページング**: 50件ずつの効率的な表示 + 「もっと読み込む」機能
+- **ソート**: 作成日時降順で最新ファイルを優先表示
+
+#### 🔍 高度なフィルタリング
+- **デバイスフィルター**: `device_id`による絞り込み（ドロップダウン選択）
+- **日付範囲フィルター**: `local_date_from` / `local_date_to`による録音日ベースの絞り込み
+- **3つの独立ステータスフィルター**:
+  - `transcriptions_status` - 転写処理状況
+  - `behavior_features_status` - 行動分析処理状況  
+  - `emotion_features_status` - 感情分析処理状況
+- **各ステータス値**: `completed`, `processing`, `failed`, `pending`, `error`
+
+#### 🎵 音声再生・ダウンロード
+- **署名付きURL**: S3ファイルへの安全なアクセス（1時間有効）
+- **ブラウザ内再生**: HTML5 Audioによる直接再生
+- **ダウンロード**: ワンクリックでローカル保存
+- **プログレス表示**: 読み込み状況のリアルタイム表示
+
+#### 🛡️ セキュリティ対応
+- **署名付きURL**: 一時的なアクセス権限による安全なファイルアクセス
+- **CORS対応**: 開発環境ではプロキシ、本番環境では同一ドメインアクセス
+- **エラーハンドリング**: ファイル存在確認・アクセス権限チェック
+
+### 技術仕様
+
+#### フロントエンド（React）
+```javascript
+// 主要コンポーネント構成
+src/modules/audio/
+├── AudioFilesModule.jsx      // メインモジュール
+├── AudioFilesList.jsx        // ファイル一覧表示
+├── AudioPlayer.jsx           // 音声プレイヤー
+├── AudioFilters.jsx          // フィルタリング機能
+└── AudioFileRow.jsx          // 各行の表示コンポーネント
+
+// 新規ページ
+src/pages/AudioFilesPage.jsx
+```
+
+#### APIエンドポイント（VaultAPI連携）
+```bash
+# ファイル一覧取得
+GET /api/audio-files?device_id=xxx&local_date_from=2025-08-25&transcriptions_status=completed
+
+# 署名付きURL生成  
+GET /api/audio-files/presigned-url?file_path=xxx&expiration_hours=1
+
+# デバイス一覧取得
+GET /api/devices
+```
+
+#### 環境変数
+```bash
+# VaultAPI連携用
+VITE_VAULT_API_BASE_URL=https://api.hey-watch.me
+```
+
+### 開発者向け情報
+
+#### ローカル開発環境
+- **プロキシ設定**: `vite.config.js`でCORS回避
+- **開発サーバー**: http://localhost:9001/audio
+- **Hot Module Replacement**: リアルタイムコード更新対応
+
+#### 本番環境デプロイ
+```bash
+# 1. ローカルビルド・ECRプッシュ
+./deploy-frontend.sh
+
+# 2. EC2でのコンテナ展開
+ssh -i ~/watchme-key.pem ubuntu@3.24.16.82
+cd /home/ubuntu/watchme-api-manager
+./deploy-frontend-ec2.sh
+```
+
+#### パフォーマンス最適化
+- **遅延読み込み**: 必要に応じてコンポーネント読み込み
+- **メモ化**: React.memoによる不要な再レンダリング防止
+- **バッチ処理**: 複数API呼び出しの最適化
 
 ---
 
@@ -249,6 +351,11 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
    - 実行時刻: 30分（3時間ごと）※特別スケジュール
    - ChatGPTで心理スコアを分析
 
+5. **🎵 オーディオファイル管理**（2025年8月25日追加）
+   - アクセス: https://api.hey-watch.me/manager/audio
+   - 音声ファイルの一覧表示・再生・ダウンロード
+   - VaultAPI連携による署名付きURLアクセス
+
 #### ⚡ 技術仕様
 
 **処理方式**:
@@ -261,6 +368,13 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 - `AllDevicesDateForm.jsx`: 日付のみ選択フォーム
 - `DeviceProcessingProgress.jsx`: 進捗表示コンポーネント
 - `AutoProcessControlWithParams.jsx`: 全デバイス対応自動処理コントロール
+
+**オーディオファイル専用コンポーネント**:
+- `AudioFilesModule.jsx`: オーディオファイル管理のメインモジュール
+- `AudioFilters.jsx`: local_dateベース + 3ステータスフィルタリング
+- `AudioFilesList.jsx`: ページング対応ファイル一覧表示  
+- `AudioPlayer.jsx`: 署名付きURL + HTML5Audio再生
+- `AudioFileRow.jsx`: device_id/local_date/time_block表示
 
 ---
 

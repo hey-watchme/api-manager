@@ -12,6 +12,16 @@ export default defineConfig({
       '/api/scheduler': {
         target: 'http://localhost:8015',
         changeOrigin: true
+      },
+      '/api/audio-files': {
+        target: 'https://api.hey-watch.me',
+        changeOrigin: true,
+        secure: true
+      },
+      '/api/devices': {
+        target: 'https://api.hey-watch.me',
+        changeOrigin: true,
+        secure: true
       }
     }
   }
