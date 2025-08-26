@@ -12,7 +12,17 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 ✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です（オーディオファイル機能実装完了）
 
-#### 🆕 最新アップデート（2025年8月25日）
+#### 🆕 最新アップデート（2025年8月26日）
+- **🚀 Azure Speech Service API統合改善**: WatchMeシステムとの完全統合機能を実装
+  - **新インターフェース**: デバイスID + 日付による効率的なバッチ処理
+  - **Supabase統合**: audio_filesテーブルからの自動ファイル取得
+  - **AWS S3統合**: 音声ファイルを直接取得して文字起こし実行
+  - **後方互換性**: 既存のfile_pathsインターフェースも継続サポート
+  - **タイムアウト延長**: 10分設定で長時間音声処理に対応
+  - **UI改善**: SDK 1.45.0の安定性アピール、処理状況の明確化
+  - **プロキシ対応**: 開発環境での/vibe-transcriber-v2エンドポイント対応
+
+#### 🎵 過去のアップデート（2025年8月25日）
 - **🎵 オーディオファイル機能実装**: 音声ファイルの一覧表示・再生・ダウンロード機能を追加
 - **🔍 高度なフィルタリング**: local_dateベースの日付絞り込み + 3つの独立ステータスフィルター
 - **👨‍💻 開発者フレンドリーUI**: データベースカラム名をそのまま表示（device_id, local_date, time_block等）
@@ -42,6 +52,7 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 | API種類 | UI上の名前 | **実際のコンテナ名** | ポート | エンドポイント | HTTPメソッド | 処理タイプ |
 |---------|-----------|---------------------|--------|----------------|-------------|-----------|
 | **[心理] Whisper書き起こし** | `whisper` | `api-transcriber` | 8001 | `/fetch-and-transcribe` | POST | ファイルベース |
+| **[心理] Azure Speech書き起こし** | `azure-transcriber` | `vibe-transcriber-v2` | 8013 | `/fetch-and-transcribe` | POST | ファイル&デバイスベース |
 | **[心理] プロンプト生成** | `vibe-aggregator` | `api_gen_prompt_mood_chart` | 8009 | `/generate-mood-prompt-supabase` | **GET** ⚠️ | デバイスベース |
 | **[心理] スコアリング** | `vibe-scorer` | `api-gpt-v1` | 8002 | `/analyze-vibegraph-supabase` | POST | デバイスベース |
 | **[行動] 音声イベント検出** | `behavior-features` | `api_sed_v1-sed_api-1` | 8004 | `/fetch-and-process-paths` | POST | ファイルベース |
@@ -53,6 +64,9 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 1. UIに表示される名前と実際のコンテナ名は異なります！
 2. `vibe-aggregator`のみGETメソッドを使用（他はすべてPOST）
 3. Dockerコンテナ内では`localhost`ではなく、必ずコンテナ名を使用すること
+4. **Azure Speech API**: 新旧2つのインターフェースを統合サポート
+   - 新: `{"device_id": "uuid", "local_date": "2025-08-26", "model": "azure"}`
+   - 旧: `{"file_paths": ["path1", "path2"], "model": "azure"}`
 
 #### 自動化済みAPI
 現在、以下のAPIの自動実行がAPI Managerで管理されています：
@@ -67,6 +81,76 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 - **[心理] スコアリング** - デバイスベース自動処理
 - **[行動] 音声イベント集計** - デバイスベース自動処理
 - **[感情] 感情スコア集計** - デバイスベース自動処理
+
+---
+
+## 🚀 Azure Speech Service API統合機能（2025年8月26日実装）
+
+### 概要
+
+Azure Speech Service APIの統合機能は、WatchMeプラットフォームとの完全統合により、デバイスID + 日付による効率的なバッチ処理を可能にします。従来のfile_pathsインターフェースに加え、新しいWatchMeシステム統合インターフェースをサポートします。
+
+**アクセスURL**: https://api.hey-watch.me/manager/psychology/azure-transcriber
+
+### 主要機能
+
+#### 🔄 2つのインターフェース統合サポート
+
+**新しいインターフェース（推奨）**:
+```json
+{
+  "device_id": "d067d407-cf73-4174-a9c1-d91fb60d64d0",
+  "local_date": "2025-08-26",
+  "time_blocks": ["09-00", "09-30", "10-00"],
+  "model": "azure"
+}
+```
+
+**既存インターフェース（後方互換性）**:
+```json
+{
+  "file_paths": [
+    "files/device_id/2025-08-25/23-00/audio.wav"
+  ],
+  "model": "azure"
+}
+```
+
+#### ⚡ 技術的改善
+
+- **タイムアウト延長**: 10分設定で長時間の音声処理に対応
+- **Supabase統合**: `audio_files`テーブルから処理対象ファイルを自動取得
+- **AWS S3統合**: 音声ファイルを直接取得して高速処理
+- **エラーハンドリング強化**: より安定したAPIレスポンス処理
+
+#### 🎨 UI/UX改善
+
+- **前向きなメッセージ**: Azure Speech Service SDK 1.45.0の安定性をアピール
+- **処理情報の明確化**: タイムアウト10分、自動保存についての案内
+- **警告の削除**: 問題解決により不要になった警告表示を撤廃
+
+### 開発環境対応
+
+#### プロキシ設定
+```javascript
+// vite.config.js - 開発環境でのプロキシ対応
+'/vibe-transcriber-v2': {
+  target: 'https://api.hey-watch.me',
+  changeOrigin: true,
+  secure: true
+}
+```
+
+#### API Client構造改善
+```javascript
+// AzureTranscriberApiClient.js - 改善された構造
+constructor() {
+  super({
+    baseURL: 'https://api.hey-watch.me/vibe-transcriber-v2',
+    timeout: 600000 // 10分のタイムアウト
+  })
+}
+```
 
 ---
 
