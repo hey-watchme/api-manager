@@ -52,17 +52,17 @@ export default function AzureTranscriberForm({ onSubmit, loading, disabled }) {
         <p className="mt-1 text-xs text-gray-500">
           複数のファイルパスを改行で区切って入力できます。不要なパスは削除できます。
         </p>
-        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-xs text-blue-800">
-            <span className="font-medium">ℹ️ Azure Speech Service：</span>
-            クラウドベースの高速音声認識。日本語に最適化されており、最大5分のタイムアウト設定です。
+        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-md">
+          <p className="text-xs text-green-800">
+            <span className="font-medium">✅ Azure Speech Service SDK 1.45.0：</span>
+            最新版SDKによる高速・高精度な音声認識。日本語に最適化されており、安定した文字起こし処理を提供します。
           </p>
         </div>
-        <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-xs text-red-800">
-            <span className="font-medium">⚠️ 注意：</span>
-            本番環境でAzureアクセスの問題があり、認識結果が空になる場合があります。
-            処理は完了状態になりますが、書き起こし結果が保存されない可能性があります。
+        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-xs text-blue-800">
+            <span className="font-medium">ℹ️ 処理情報：</span>
+            タイムアウト設定10分。音声ファイルの長さに応じて処理時間が変動します。
+            処理結果はvibe_whisperテーブルとaudio_filesテーブルに自動保存されます。
           </p>
         </div>
       </div>

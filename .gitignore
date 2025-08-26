@@ -54,3 +54,4 @@ Thumbs.db
 .eslintcache*.pid
 *.log
 start-background.sh
+*.pid

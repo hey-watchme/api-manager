@@ -22,6 +22,11 @@ export default defineConfig({
         target: 'https://api.hey-watch.me',
         changeOrigin: true,
         secure: true
+      },
+      '/vibe-transcriber-v2': {
+        target: 'https://api.hey-watch.me',
+        changeOrigin: true,
+        secure: true
       }
     }
   }
