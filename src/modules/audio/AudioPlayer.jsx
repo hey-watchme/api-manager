@@ -50,44 +50,45 @@ const AudioPlayer = ({ filePath, onPlay }) => {
 
   return (
     <div className="flex flex-col space-y-2">
-      <div className="flex space-x-2">
-        <button
-          onClick={handlePlay}
-          disabled={loading}
-          className="flex items-center px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 text-sm"
-        >
-          {loading ? (
-            <>
-              <span className="animate-spin mr-1">⏳</span>
-              読み込み中...
-            </>
-          ) : (
-            <>
-              🎵 再生
-            </>
-          )}
-        </button>
-        
-        <button
-          onClick={handleDownload}
-          className="flex items-center px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
-        >
-          📥 ダウンロード
-        </button>
+      <div className="flex space-x-1">
+        {loading ? (
+          <span className="text-gray-500 text-xs flex items-center">
+            <span className="animate-spin mr-1">⏳</span>
+            読み込み中...
+          </span>
+        ) : (
+          <>
+            <button
+              onClick={handlePlay}
+              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+              title="再生"
+            >
+              ▶️
+            </button>
+            <button
+              onClick={handleDownload}
+              className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
+              title="ダウンロード"
+            >
+              📥
+            </button>
+          </>
+        )}
       </div>
 
       {error && (
-        <div className="text-red-500 text-sm">
+        <div className="text-red-500 text-xs">
           {error}
         </div>
       )}
 
       {audioUrl && (
-        <div className="mt-2">
+        <div className="mt-1">
           <audio 
             controls 
             src={audioUrl}
-            className="w-full max-w-sm"
+            className="h-8"
+            style={{ minWidth: '150px', width: '150px' }}
             onError={() => setError('音声ファイルの再生に失敗しました')}
           >
             お使いのブラウザは音声再生に対応していません

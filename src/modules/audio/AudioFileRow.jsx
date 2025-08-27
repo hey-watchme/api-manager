@@ -23,10 +23,10 @@ const AudioFileRow = ({ audioFile, onPlayAudio }) => {
     return localDate
   }
 
-  // デバイスIDを短縮表示
+  // デバイスIDを完全表示（改行対応）
   const formatDeviceId = (deviceId) => {
     if (!deviceId) return 'Unknown'
-    return deviceId.length > 8 ? `${deviceId.substring(0, 8)}...` : deviceId
+    return deviceId
   }
 
   // ステータスの色を取得
@@ -68,11 +68,20 @@ const AudioFileRow = ({ audioFile, onPlayAudio }) => {
     <tr className="hover:bg-gray-50">
       {/* デバイスID */}
       <td className="px-4 py-3 text-sm">
-        <div className="font-medium text-gray-900">
+        <div className="font-mono text-xs text-gray-900 break-all">
           {formatDeviceId(audioFile.device_id)}
         </div>
-        <div className="text-xs text-gray-500" title={audioFile.device_id}>
-          {audioFile.device_name || 'デバイス名なし'}
+        {audioFile.device_name && (
+          <div className="text-xs text-gray-500 mt-1">
+            {audioFile.device_name}
+          </div>
+        )}
+      </td>
+
+      {/* ファイルパス */}
+      <td className="px-4 py-3 text-sm">
+        <div className="font-mono text-xs text-gray-900 break-all max-w-xs">
+          {audioFile.file_path || 'Unknown'}
         </div>
       </td>
 
@@ -103,6 +112,47 @@ const AudioFileRow = ({ audioFile, onPlayAudio }) => {
       {/* 処理ステータス */}
       <td className="px-4 py-3">
         {renderProcessingStatus()}
+      </td>
+
+      {/* Result (Transcription + Events) */}
+      <td className="px-4 py-3 text-sm">
+        <div className="font-mono text-xs text-gray-900 break-all max-w-xs">
+          {/* Transcription */}
+          <div className="mb-3">
+            <div className="font-semibold text-blue-600 mb-1">TRANSCRIPTION:</div>
+            {audioFile.transcription ? (
+              <div className="max-h-20 overflow-y-auto bg-gray-50 p-2 rounded">
+                {audioFile.transcription}
+              </div>
+            ) : (
+              <span className="text-gray-400 italic">EMPTY</span>
+            )}
+          </div>
+          
+          {/* Events */}
+          <div className="mb-3">
+            <div className="font-semibold text-green-600 mb-1">EVENTS:</div>
+            {audioFile.events ? (
+              <div className="max-h-20 overflow-y-auto bg-gray-50 p-2 rounded">
+                {JSON.stringify(audioFile.events, null, 2)}
+              </div>
+            ) : (
+              <span className="text-gray-400 italic">EMPTY</span>
+            )}
+          </div>
+
+          {/* Features Timeline */}
+          <div>
+            <div className="font-semibold text-purple-600 mb-1">FEATURES TIMELINE:</div>
+            {audioFile.featuresTimeline ? (
+              <div className="max-h-20 overflow-y-auto bg-gray-50 p-2 rounded">
+                {JSON.stringify(audioFile.featuresTimeline, null, 2)}
+              </div>
+            ) : (
+              <span className="text-gray-400 italic">EMPTY</span>
+            )}
+          </div>
+        </div>
       </td>
 
       {/* アクション */}

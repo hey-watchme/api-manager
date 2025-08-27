@@ -87,10 +87,100 @@ class AudioFilesService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const data = await response.json();
+      
+      // transcriptionとeventsデータを追加で取得
+      if (data.files && data.files.length > 0) {
+        const filesWithResults = await Promise.all(
+          data.files.map(async (file) => {
+            // local_dateとtime_blockがある場合のみデータを取得
+            if (file.device_id && file.local_date && file.time_block) {
+              const [transcription, events, featuresTimeline] = await Promise.all([
+                this.getTranscription(file.device_id, file.local_date, file.time_block),
+                this.getEvents(file.device_id, file.local_date, file.time_block),
+                this.getFeaturesTimeline(file.device_id, file.local_date, file.time_block)
+              ]);
+              return { ...file, transcription, events, featuresTimeline };
+            }
+            return file;
+          })
+        );
+        data.files = filesWithResults;
+      }
+      
+      return data;
     } catch (error) {
       console.error('Vault APIファイル一覧取得エラー:', error);
       throw error;
+    }
+  }
+  
+  // vibe_whisperテーブルからtranscription取得
+  async getTranscription(deviceId, localDate, timeBlock) {
+    try {
+      const { data, error } = await supabase
+        .from('vibe_whisper')
+        .select('transcription')
+        .eq('device_id', deviceId)
+        .eq('date', localDate)
+        .eq('time_block', timeBlock)
+        .single();
+      
+      if (error) {
+        // エラーの場合はnullを返す（データが存在しない場合も含む）
+        return null;
+      }
+      
+      return data?.transcription || null;
+    } catch (error) {
+      console.error('Transcription取得エラー:', error);
+      return null;
+    }
+  }
+
+  // behavior_yamnetテーブルからevents取得
+  async getEvents(deviceId, localDate, timeBlock) {
+    try {
+      const { data, error } = await supabase
+        .from('behavior_yamnet')
+        .select('events')
+        .eq('device_id', deviceId)
+        .eq('date', localDate)
+        .eq('time_block', timeBlock)
+        .single();
+      
+      if (error) {
+        // エラーの場合はnullを返す（データが存在しない場合も含む）
+        return null;
+      }
+      
+      return data?.events || null;
+    } catch (error) {
+      console.error('Events取得エラー:', error);
+      return null;
+    }
+  }
+
+  // emotion_opensmileテーブルからfeatures_timeline取得
+  async getFeaturesTimeline(deviceId, localDate, timeBlock) {
+    try {
+      const { data, error } = await supabase
+        .from('emotion_opensmile')
+        .select('features_timeline')
+        .eq('device_id', deviceId)
+        .eq('date', localDate)
+        .eq('time_block', timeBlock)
+        .single();
+      
+      if (error) {
+        // エラーの場合はnullを返す（データが存在しない場合も含む）
+        return null;
+      }
+      
+      return data?.features_timeline || null;
+    } catch (error) {
+      console.error('Features Timeline取得エラー:', error);
+      return null;
     }
   }
 
