@@ -831,21 +831,47 @@ chmod +x /home/ubuntu/connect-all-containers.sh
   - FastAPIは `/api/scheduler/` でリスンする必要がある（Nginxが `/scheduler/` → `/api/scheduler/` にプロキシするため）
   - 各APIの実行エンドポイントはコンテナ名を使用（例: `http://api-transcriber:8001/fetch-and-transcribe`）
 
-#### 2. コンテナ間通信の問題
-- **症状**: スケジューラーから他のAPIを呼び出せない
-- **原因**: Linux環境では `host.docker.internal` が使用できない
+#### 2. 🚨 コンテナ再作成後のネットワーク切断問題【重要・頻発】
+- **症状**: 
+  - スケジューラーから他のAPIを呼び出せない
+  - エラーログに「コンテナ名 'http://api-transcriber:8001/...' が解決できません」と表示
+  - 今まで動いていたスケジューラーが急に動作しなくなる
+- **原因**: 
+  - **APIのチューニングやデプロイでコンテナを再作成すると、watchme-networkへの接続が自動的に切断される**
+  - Dockerコンテナの再作成時、ネットワーク接続は自動復元されない仕様
+- **診断方法**:
+  ```bash
+  # 診断スクリプトを実行（このリポジトリに含まれています）
+  ./diagnose-scheduler.sh
+  
+  # または手動で確認
+  docker network inspect watchme-network | grep "api-transcriber"
+  ```
 - **解決策**: 
-  - コンテナ名を使用して通信（例: `http://api-transcriber:8001`）
-  - 全てのコンテナを `watchme-network` に接続
+  ```bash
+  # 切断されたコンテナを再接続（例：Whisper APIの場合）
+  docker network connect watchme-network api-transcriber
+  
+  # 全APIコンテナを一括で再接続するスクリプト
+  for container in api-transcriber api-gpt-v1 api_gen_prompt_mood_chart \
+                   api_sed_v1-sed_api-1 api-sed-aggregator \
+                   opensmile-api opensmile-aggregator; do
+    docker network connect watchme-network $container 2>/dev/null && \
+      echo "✅ $container 接続完了" || echo "⚠️ $container 既に接続済み"
+  done
+  ```
+- **予防策**:
+  - コンテナ再作成後は必ず `docker network connect` を実行
+  - デプロイスクリプトに自動接続処理を追加することを推奨
 
-#### 2. 環境変数の設定漏れ
+#### 3. 環境変数の設定漏れ
 - **症状**: API接続エラーやSupabase認証エラー
 - **原因**: `.env` ファイルが存在しないか、必要な変数が不足
 - **解決策**: 
   - EC2サーバーで `.env` ファイルを作成
   - 他のサービスの `.env` ファイルを参考に必要な値を設定
 
-#### 3. Nginxルーティングの確認
+#### 4. Nginxルーティングの確認
 - **症状**: ブラウザからAPIエンドポイントにアクセスできない
 - **確認方法**: 
   ```bash
@@ -853,12 +879,12 @@ chmod +x /home/ubuntu/connect-all-containers.sh
   sudo cat /etc/nginx/sites-available/api.hey-watch.me | grep -A 5 "location"
   ```
 
-#### 4. スケジューラー設定の問題
+#### 5. スケジューラー設定の問題
 - **症状**: UIから設定を変更しても500エラーが発生する
 - **原因**: Dockerコンテナからホストのcronファイルへの書き込み権限がない
 - **解決策**: 2025-08-11のアーキテクチャ改善で解決済み。cron設定は手動管理に変更。
 
-#### 5. スケジュール実行されない
+#### 6. スケジュール実行されない
 - **症状**: APIが自動実行されない
 - **確認方法**:
   ```bash

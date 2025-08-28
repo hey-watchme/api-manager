@@ -100,7 +100,7 @@ function AppContent() {
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="px-6">
           <div className="flex justify-between items-center py-4">
             <Link to="/vibe" className="text-2xl font-bold text-gray-900 hover:text-gray-700">
               WatchMe API Manager
@@ -111,7 +111,7 @@ function AppContent() {
       </header>
 
       {/* メインコンテンツ */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-6 py-6">
         <Navigation />
         
         <Routes>
