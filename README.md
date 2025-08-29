@@ -597,6 +597,21 @@ VITE_PORT=9001
 
 本アプリケーションのデプロイは、ECR (Elastic Container Registry) を利用して行います。フロントエンドとスケジューラーAPIは、それぞれ別のDockerイメージとしてビルドされ、EC2上でコンテナとして実行されます。
 
+#### ⚠️ 前提条件：ネットワークインフラの確認（2025年8月28日追加）
+
+デプロイ前に、`watchme-network`が存在することを確認してください：
+
+```bash
+# EC2サーバーで実行
+ssh -i ~/watchme-key.pem ubuntu@3.24.16.82
+
+# watchme-networkの存在確認と状態チェック
+bash /home/ubuntu/watchme-server-configs/scripts/check-infrastructure.sh
+
+# 問題がある場合は自動修復
+python3 /home/ubuntu/watchme-server-configs/scripts/network_monitor.py --fix
+```
+
 #### 🚀 クイックデプロイ（推奨）
 
 デプロイ作業を簡略化するため、専用のスクリプトを用意しています：
@@ -960,9 +975,14 @@ WatchMeシステムには**3種類の異なるエンドポイント**が存在�
    - `deploy-frontend.sh` と `deploy-scheduler.sh` を使用してECRへのプッシュを自動化
    - EC2サーバー側の手順もスクリプト化することを推奨
 
-3. **ネットワーク設定の標準化**
+3. **ネットワーク設定の標準化**（2025年8月28日更新）
    - 新しいコンテナは必ず `watchme-network` に接続
-   - `docker-compose.yml` に `networks` セクションを明記
+   - `docker-compose.yml` に `networks` セクションを明記：
+     ```yaml
+     networks:
+       watchme-network:
+         external: true  # 必須！driver: bridgeは使用しない
+     ```
    - **コンテナ名の命名規則:** ハイフン区切りで統一（例: `api-transcriber`、`opensmile-api`）
 
 4. **ヘルスチェックの実装**

@@ -25,4 +25,4 @@ services:
 
 networks:
   watchme-network:
-    driver: bridge
+    external: true
