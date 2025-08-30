@@ -835,6 +835,8 @@ chmod +x /home/ubuntu/connect-all-containers.sh
     - `host.docker.internal` の名前解決に失敗し、スケジューラーがAPIを呼び出せなかった問題の調査と解決の記録です。
   - **2025-08-11: スケジューラー500エラーの解決**
     - UIから設定変更時の500エラーを、アーキテクチャ改善により解決しました。詳細は上記「スケジューラーの仕組み」を参照。
+  - **2025-08-30: Azure Transcriberスケジューラー権限エラー**
+    - ログファイルの権限エラーでスケジューラーが動作しない問題を解決。詳細な診断手順を「スケジューラーが動作しない問題の完全診断ガイド」に追加。
 
 ### デプロイ時によくある問題と対策
 
@@ -879,7 +881,169 @@ chmod +x /home/ubuntu/connect-all-containers.sh
   - コンテナ再作成後は必ず `docker network connect` を実行
   - デプロイスクリプトに自動接続処理を追加することを推奨
 
-#### 3. 環境変数の設定漏れ
+#### 3. 🚨 スケジューラーが動作しない問題の完全診断ガイド【2025-08-30追加】
+
+スケジューラーが動作しない場合、以下の手順で**必ず**順番に診断してください。
+
+##### 症状の例
+- UIで「最終処理」が更新されない
+- 特定のAPIだけスケジュール実行されない
+- cronは実行されているがAPIが処理されない
+
+##### ステップ1: cronと全く同じコマンドを手動実行（最重要）
+```bash
+# SSHでEC2サーバーに接続
+ssh -i ~/watchme-key.pem ubuntu@3.24.16.82
+
+# cronが実行するのと全く同じコマンドを手動で実行
+# これが最も確実な検証方法です
+python3 /home/ubuntu/scheduler/run_if_enabled.py [API名] >> /var/log/scheduler/cron.log 2>&1
+
+# 例：Azure Transcriberの場合
+python3 /home/ubuntu/scheduler/run_if_enabled.py azure-transcriber >> /var/log/scheduler/cron.log 2>&1
+```
+
+##### ステップ2: エラーメッセージを確認
+```bash
+# cron.logでエラーを確認
+tail -50 /var/log/scheduler/cron.log | grep -A 5 -B 5 [API名]
+
+# よくあるエラー：Permission denied
+# PermissionError: [Errno 13] Permission denied: '/var/log/scheduler/scheduler-[API名].log'
+```
+
+##### ステップ3: ログファイルの権限を確認・修正
+```bash
+# ログファイルの権限を確認
+ls -la /var/log/scheduler/scheduler-*.log
+
+# 正常なファイル: -rw-rw-r-- (664) ubuntu:ubuntu
+# 問題のファイル: -rw-r--r-- (644) または root:root
+
+# 権限を修正
+sudo chown ubuntu:ubuntu /var/log/scheduler/scheduler-[API名].log
+sudo chmod 664 /var/log/scheduler/scheduler-[API名].log
+```
+
+##### ステップ4: watchme-networkへの接続を確認
+```bash
+# ネットワーク診断スクリプトを実行
+bash /home/ubuntu/watchme-server-configs/scripts/check-infrastructure.sh
+
+# 特定のコンテナの接続を確認
+docker network inspect watchme-network | grep -A 5 [コンテナ名]
+
+# スケジューラーから対象APIへの疎通確認
+docker exec watchme-scheduler-prod ping -c 1 [コンテナ名]
+```
+
+##### ステップ5: config.jsonの設定を確認
+```bash
+# APIが有効になっているか確認
+cat /home/ubuntu/scheduler/config.json | jq '.apis["[API名]"]'
+
+# enabledがtrueであることを確認
+```
+
+##### ステップ6: 手動でAPI処理を実行
+```bash
+# Dockerコンテナから直接実行してAPIが動作するか確認
+docker exec watchme-scheduler-prod python /app/run-api-process-docker.py [API名] --date $(date +%Y-%m-%d)
+```
+
+##### 実際の事例：Azure Transcriber（2025-08-30）
+
+**問題**: Azure Transcriberのスケジューラーが動作しない
+- cronは毎時10分に実行されている（syslogで確認）
+- しかし処理が実行されていない
+
+**原因**: ログファイルの権限エラー
+- `/var/log/scheduler/scheduler-azure-transcriber.log` が644（読み取り専用）
+- ubuntuユーザーが書き込めないため、run_if_enabled.pyがクラッシュ
+
+**解決方法**:
+```bash
+# 権限を修正
+sudo chown ubuntu:ubuntu /var/log/scheduler/scheduler-azure-transcriber.log
+sudo chmod 664 /var/log/scheduler/scheduler-azure-transcriber.log
+
+# 動作確認（cronと同じコマンドを実行）
+python3 /home/ubuntu/scheduler/run_if_enabled.py azure-transcriber >> /var/log/scheduler/cron.log 2>&1
+```
+
+##### チェックリスト（新しいAPIを追加した場合）
+
+- [ ] ログファイルが自動作成され、権限が664になっているか
+- [ ] config.jsonにAPIが登録され、enabledがtrueか
+- [ ] watchme-networkにコンテナが接続されているか
+- [ ] cron設定ファイルにAPIが追加されているか
+- [ ] フロントエンドのスケジュール表示設定が追加されているか
+
+##### 便利な診断コマンド集
+
+```bash
+# 🔍 総合診断（これ1つで基本的な問題を発見）
+echo "=== スケジューラー総合診断 ===" && \
+echo "1. 有効なAPI:" && cat /home/ubuntu/scheduler/config.json | jq -r '.apis | to_entries[] | select(.value.enabled == true) | .key' && \
+echo "2. ログファイル権限:" && ls -la /var/log/scheduler/*.log | grep -v "rw-rw-r--" && \
+echo "3. 最近のエラー:" && tail -100 /var/log/scheduler/cron.log | grep -i error | tail -5 && \
+echo "4. ネットワーク接続状態:" && bash /home/ubuntu/watchme-server-configs/scripts/check-infrastructure.sh | grep -E "SUCCESS|ERROR"
+
+# 📊 特定APIの完全診断
+API_NAME="azure-transcriber"  # 診断したいAPI名に変更
+echo "=== $API_NAME 診断 ===" && \
+echo "設定:" && cat /home/ubuntu/scheduler/config.json | jq ".apis[\"$API_NAME\"]" && \
+echo "ログ権限:" && ls -la /var/log/scheduler/scheduler-$API_NAME.log && \
+echo "最終実行:" && tail -3 /var/log/scheduler/scheduler-$API_NAME.log && \
+echo "cron実行:" && grep $API_NAME /etc/cron.d/watchme-scheduler && \
+echo "即座に実行テスト:" && python3 /home/ubuntu/scheduler/run_if_enabled.py $API_NAME
+
+# 🔧 全ログファイルの権限を一括修正
+for log in /var/log/scheduler/scheduler-*.log; do
+  sudo chown ubuntu:ubuntu "$log"
+  sudo chmod 664 "$log"
+done
+echo "全ログファイルの権限を修正しました"
+
+# 🌐 全APIコンテナのネットワーク接続を一括確認・修正
+for container in api-transcriber vibe-transcriber-v2 api-gpt-v1 api_gen_prompt_mood_chart \
+                 api_sed_v1-sed_api-1 api-sed-aggregator \
+                 opensmile-api opensmile-aggregator; do
+  if docker ps --format "{{.Names}}" | grep -q "^$container$"; then
+    docker network connect watchme-network $container 2>/dev/null && \
+      echo "✅ $container を接続" || echo "⚠️ $container は既に接続済み"
+  else
+    echo "❌ $container コンテナが存在しません"
+  fi
+done
+
+# 📈 スケジューラーの実行履歴を確認
+echo "=== 過去1時間のスケジューラー実行履歴 ===" && \
+for api in whisper azure-transcriber behavior-features vibe-aggregator behavior-aggregator emotion-features emotion-aggregator vibe-scorer; do
+  count=$(grep -c "^$(date -u '+%Y-%m-%d %H').*$api.*実行成功" /var/log/scheduler/cron.log 2>/dev/null || echo 0)
+  echo "$api: $count 回成功"
+done
+```
+
+##### よくある落とし穴と対策
+
+1. **ログファイルがrootユーザーで作成される問題**
+   - 原因: 初回実行時にsudoを使用したり、手動でファイルを作成
+   - 対策: 必ずubuntuユーザーで実行、権限は664に統一
+
+2. **「動いているはず」の思い込み**
+   - 原因: UIの表示だけ見て判断
+   - 対策: 必ずcronと同じコマンドを手動実行して検証
+
+3. **ネットワーク接続の見落とし**
+   - 原因: コンテナ再作成時にwatchme-networkから切断
+   - 対策: デプロイ後は必ずcheck-infrastructure.shを実行
+
+4. **config.jsonの不整合**
+   - 原因: UIから設定変更したが反映されていない
+   - 対策: cat /home/ubuntu/scheduler/config.json で直接確認
+
+#### 4. 環境変数の設定漏れ
 - **症状**: API接続エラーやSupabase認証エラー
 - **原因**: `.env` ファイルが存在しないか、必要な変数が不足
 - **解決策**: 

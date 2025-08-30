@@ -54,6 +54,7 @@ export default function AutoProcessControl({
   const getScheduleInfo = (apiName) => {
     const schedules = {
       'whisper': { time: '毎時10分', frequency: '毎時間' },
+      'azure-transcriber': { time: '毎時10分', frequency: '毎時間' },
       'behavior-features': { time: '毎時10分', frequency: '毎時間' },
       'vibe-aggregator': { time: '毎時20分', frequency: '毎時間' },
       'behavior-aggregator': { time: '毎時20分', frequency: '毎時間' },

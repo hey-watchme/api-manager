@@ -7,13 +7,15 @@
 # 3. sudo chmod 644 /etc/cron.d/watchme-scheduler
 #
 # 実行時刻の説明:
-# - 毎時10分: whisper (音声書き起こし), behavior-features (行動特徴抽出)
+# - 毎時10分: azure-transcriber (Azure音声書き起こし), behavior-features (行動特徴抽出)
 # - 毎時20分: vibe-aggregator (心理プロンプト生成), behavior-aggregator (行動集計), emotion-features (感情特徴抽出)
 # - 毎時30分: emotion-aggregator (感情集計)
 # - 3時間ごとの30分: vibe-scorer (心理スコアリング) - コスト削減のため頻度を下げる
+# 注: whisper (Whisper音声書き起こし) は停止中 - Azure Transcriberに置き換え
 
 # 毎時10分 - ファイルベース処理（第1グループ）
-10 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py whisper >> /var/log/scheduler/cron.log 2>&1
+# 10 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py whisper >> /var/log/scheduler/cron.log 2>&1  # 停止中 - Azure Transcriberに置き換え
+10 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py azure-transcriber >> /var/log/scheduler/cron.log 2>&1
 10 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py behavior-features >> /var/log/scheduler/cron.log 2>&1
 
 # 毎時20分 - デバイスベース処理と追加のファイルベース処理（第2グループ）

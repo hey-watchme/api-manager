@@ -115,6 +115,15 @@ API_CONFIGS = {
         "model": None, # このAPIにモデル指定が不要な場合はNone
         "display_name": "感情特徴抽出",
         "type": "file_based"
+    },
+    "azure-transcriber": {
+        # Azure Speech Service APIのコンテナ名とポートを指定
+        "endpoint": "http://vibe-transcriber-v2:8013/fetch-and-transcribe",
+        # Supabaseで未処理ファイルを検索するためのカラム名（Whisperと同じ）
+        "status_column": "transcriptions_status",
+        "model": "azure",  # Azureモデルを指定
+        "display_name": "Azure Transcriber",
+        "type": "file_based"
     }
 }
 
