@@ -104,7 +104,7 @@ function DashboardTimeblockResults({ results }) {
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
         <p className="text-sm text-blue-800">
           💡 プロンプトはdashboardテーブルのpromptカラムに保存されました。
-          ChatGPTによる分析実行後、結果が同テーブルに格納されます。
+          ChatGPTによる分析実行後、結果は同テーブルのanalysis_resultカラムに格納されます。
         </p>
       </div>
     </div>

@@ -34,8 +34,7 @@ function DashboardTimeblockForm({ onSubmit, loading, disabled }) {
       setLoadingDevices(true)
       const { data, error } = await supabase
         .from('devices')
-        .select('device_id, device_type, status')
-        .eq('status', 'active')  // アクティブなデバイスのみ取得
+        .select('device_id')
         .order('device_id')
 
       if (error) throw error
@@ -148,7 +147,7 @@ function DashboardTimeblockForm({ onSubmit, loading, disabled }) {
             {devices.length > 0 ? (
               devices.map(device => (
                 <option key={device.device_id} value={device.device_id}>
-                  {device.device_id} {device.device_type ? `(${device.device_type})` : ''}
+                  {device.device_id}
                 </option>
               ))
             ) : (
