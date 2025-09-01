@@ -7,6 +7,7 @@ import BehaviorFeaturesModule from './modules/behavior/behavior-features/Behavio
 import BehaviorAggregatorModule from './modules/behavior/aggregator/BehaviorAggregatorModule'
 import EmotionPage from './pages/EmotionPage'
 import AudioFilesPage from './pages/AudioFilesPage'
+import DashboardPage from './pages/DashboardPage'
 
 // ページコンポーネント
 function PsychologyPage() {
@@ -62,6 +63,7 @@ function Navigation() {
   const location = useLocation()
   
   const navItems = [
+    { path: '/dashboard', label: '📊 ダッシュボード', disabled: false },
     { path: '/vibe', label: '🧠 心理グラフ', disabled: false },
     { path: '/behavior', label: '🏃 行動グラフ', disabled: false },
     { path: '/emotion', label: '😊 感情グラフ', disabled: false },
@@ -115,7 +117,8 @@ function AppContent() {
         <Navigation />
         
         <Routes>
-          <Route path="/" element={<Navigate to="/vibe" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/vibe" element={<PsychologyPage />} />
           <Route path="/behavior" element={<BehaviorPage />} />
           <Route path="/emotion" element={<EmotionPage />} />

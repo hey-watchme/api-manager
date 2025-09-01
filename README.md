@@ -8,11 +8,21 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 **開発環境**: http://localhost:9001  
 **GitHubリポジトリ**: https://github.com/matsumotokaya/watchme-api-manager
 
-### 📊 本番環境デプロイ状況（2025年8月25日更新）
+### 📊 本番環境デプロイ状況（2025年9月1日更新）
 
-✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です（オーディオファイル機能実装完了）
+✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です（ダッシュボード機能実装完了）
 
-#### 🆕 最新アップデート（2025年8月26日）
+#### 🆕 最新アップデート（2025年9月1日）
+- **📊 ダッシュボード機能追加**: タイムブロック単位の高精度プロンプト生成UI
+  - **新ナビゲーション**: 最左端に「ダッシュボード」タブを追加
+  - **タイムブロック処理**: 30分単位でのきめ細かいプロンプト生成
+  - **マルチモーダル統合**: Whisper + YAMNet + 観測対象者情報を統合
+  - **効率的UI**: 時間帯別クイック選択、複数タイムブロック一括処理
+  - **リアルタイム進捗**: 処理状況をプログレスバーで可視化
+  - **データ保存先**: dashboardテーブルのpromptカラムに直接保存
+  - **APIエンドポイント**: `GET /generate-timeblock-prompt`（api_gen_prompt_mood_chartコンテナ使用）
+
+#### 過去のアップデート（2025年8月26日）
 - **🚀 Azure Speech Service API統合改善**: WatchMeシステムとの完全統合機能を実装
   - **新インターフェース**: デバイスID + 日付による効率的なバッチ処理
   - **Supabase統合**: audio_filesテーブルからの自動ファイル取得
@@ -150,6 +160,70 @@ constructor() {
     timeout: 600000 // 10分のタイムアウト
   })
 }
+```
+
+---
+
+## 📊 ダッシュボード機能（2025年9月1日実装）
+
+### 概要
+
+ダッシュボード機能は、30分単位（タイムブロック）での高精度なプロンプト生成を可能にする新機能です。従来の1日単位の処理に加えて、より細かい時間単位での心理状態分析が可能になりました。
+
+**アクセスURL**: https://api.hey-watch.me/manager/dashboard
+
+### 主要機能
+
+#### 🎯 タイムブロック単位プロンプト生成
+- **処理単位**: 30分ごとのタイムブロック（00-00, 00-30, 01-00...23-30）
+- **データ統合**: 
+  - Whisper音声書き起こしデータ（vibe_whisperテーブル）
+  - YAMNet音響イベント検出データ（behavior_yamnetテーブル）
+  - 観測対象者情報（subjectsテーブル）
+- **出力先**: dashboardテーブルのpromptカラム
+
+#### 🎨 使いやすいUI設計
+- **デバイス選択**: Supabaseから自動取得したデバイスリスト
+- **日付選択**: カレンダーUIで簡単指定
+- **タイムブロック選択**:
+  - 個別選択: 必要なタイムブロックのみ選択
+  - 時間帯別クイック選択: 早朝/午前/午後/夕方/夜など
+  - 全選択/全解除: ワンクリックで切り替え
+- **進捗表示**: リアルタイムプログレスバーと処理状況表示
+
+#### 🔧 技術仕様
+- **APIエンドポイント**: `GET /generate-timeblock-prompt`
+- **必須パラメータ**:
+  - `device_id`: デバイスID（UUID形式）
+  - `date`: 処理日付（YYYY-MM-DD形式）
+  - `time_block`: タイムブロック（HH-MM形式）
+- **バックエンド**: api_gen_prompt_mood_chartコンテナ（ポート8009）
+- **レスポンス**: 成功/失敗状態、プロンプト長、データ有無情報
+
+### 開発者向け情報
+
+#### コンポーネント構成
+```
+src/
+├── pages/
+│   └── DashboardPage.jsx              # メインページ
+├── modules/dashboard/
+│   ├── DashboardTimeblockForm.jsx     # 入力フォーム
+│   └── DashboardTimeblockResults.jsx  # 結果表示
+└── services/
+    └── DashboardApiClient.js          # API通信
+```
+
+#### 使用例
+```javascript
+// APIクライアント使用例
+import dashboardApiClient from './services/DashboardApiClient'
+
+const result = await dashboardApiClient.generateTimeblockPrompt(
+  '9f7d6e27-98c3-4c19-bdfb-f7fda58b9a93',  // device_id
+  '2025-09-01',                              // date
+  '19-30'                                     // time_block
+)
 ```
 
 ---
@@ -823,6 +897,19 @@ chmod +x /home/ubuntu/connect-all-containers.sh
 [**watchme-server-configs**](https://github.com/matsumotokaya/watchme-server-configs)
 
 デプロイや、新しいAPIを追加する際は、必ず上記リポジトリの `README.md` を熟読し、サーバー全体の設計思想と運用ルールを理解した上で、適切な設定を行ってください。
+
+---
+
+## 更新履歴
+
+| 日付 | バージョン | 内容 |
+|------|-----------|------|
+| 2025-09-01 | v1.5.0 | ダッシュボード機能追加、タイムブロック単位プロンプト生成実装 |
+| 2025-08-26 | v1.4.0 | Azure Speech Service API統合改善 |
+| 2025-08-25 | v1.3.0 | オーディオファイル管理機能実装 |
+| 2025-08-22 | v1.2.3 | 環境変数の統一、全デバイス処理の修正 |
+| 2025-08-21 | v1.2.0 | 全デバイス対応実装、UI大幅改善 |
+| 2025-08-10 | v1.1.0 | スケジューラー完全実装、UUID標準化 |
 
 ---
 
