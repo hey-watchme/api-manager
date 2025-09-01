@@ -19,8 +19,11 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
   - **マルチモーダル統合**: Whisper + YAMNet + 観測対象者情報を統合
   - **効率的UI**: 時間帯別クイック選択、複数タイムブロック一括処理
   - **リアルタイム進捗**: 処理状況をプログレスバーで可視化
-  - **データ保存先**: dashboardテーブルのpromptカラムに直接保存
+  - **データ保存先**: 
+    - プロンプト: dashboardテーブルの`prompt`カラム
+    - ChatGPT分析結果: 同テーブルの`analysis_result`カラム
   - **APIエンドポイント**: `GET /generate-timeblock-prompt`（api_gen_prompt_mood_chartコンテナ使用）
+  - **デバイス選択改善**: devicesテーブルからdevice_idのみを取得するシンプルな実装
 
 #### 過去のアップデート（2025年8月26日）
 - **🚀 Azure Speech Service API統合改善**: WatchMeシステムとの完全統合機能を実装
@@ -164,7 +167,7 @@ constructor() {
 
 ---
 
-## 📊 ダッシュボード機能（2025年9月1日実装）
+## 📊 ダッシュボード機能（2025年9月1日実装・更新）
 
 ### 概要
 
@@ -180,10 +183,15 @@ constructor() {
   - Whisper音声書き起こしデータ（vibe_whisperテーブル）
   - YAMNet音響イベント検出データ（behavior_yamnetテーブル）
   - 観測対象者情報（subjectsテーブル）
-- **出力先**: dashboardテーブルのpromptカラム
+- **データ保存先**: 
+  - **プロンプト**: dashboardテーブルの`prompt`カラム
+  - **分析結果**: ChatGPT分析後、同テーブルの`analysis_result`カラムに格納
 
 #### 🎨 使いやすいUI設計
-- **デバイス選択**: Supabaseから自動取得したデバイスリスト
+- **デバイス選択**: 
+  - Supabaseのdevicesテーブルから自動取得
+  - デバイスIDのみを表示（シンプルな選択UI）
+  - デフォルトでよく使用されるデバイスIDを自動選択
 - **日付選択**: カレンダーUIで簡単指定
 - **タイムブロック選択**:
   - 個別選択: 必要なタイムブロックのみ選択
@@ -199,6 +207,17 @@ constructor() {
   - `time_block`: タイムブロック（HH-MM形式）
 - **バックエンド**: api_gen_prompt_mood_chartコンテナ（ポート8009）
 - **レスポンス**: 成功/失敗状態、プロンプト長、データ有無情報
+
+#### 💾 データベース構造
+- **devicesテーブル**: デバイス情報（device_idのみを使用）
+- **dashboardテーブル**:
+  - `device_id`: デバイス識別子
+  - `date`: 処理日付
+  - `time_block`: タイムブロック
+  - `prompt`: 生成されたプロンプト
+  - `analysis_result`: ChatGPT分析結果（JSON形式）
+  - `vibe_score`: 感情スコア（-100〜100）
+  - `summary`: 分析結果のサマリー
 
 ### 開発者向け情報
 
@@ -904,6 +923,7 @@ chmod +x /home/ubuntu/connect-all-containers.sh
 
 | 日付 | バージョン | 内容 |
 |------|-----------|------|
+| 2025-09-01 | v1.5.1 | ダッシュボード機能改善（device_id取得の簡素化、analysis_resultカラム説明追加） |
 | 2025-09-01 | v1.5.0 | ダッシュボード機能追加、タイムブロック単位プロンプト生成実装 |
 | 2025-08-26 | v1.4.0 | Azure Speech Service API統合改善 |
 | 2025-08-25 | v1.3.0 | オーディオファイル管理機能実装 |
