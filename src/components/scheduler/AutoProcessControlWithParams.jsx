@@ -59,7 +59,7 @@ export default function AutoProcessControlWithParams({
   // 実行時刻の定義（固定スケジュール）
   const getScheduleInfo = (apiName) => {
     const schedules = {
-      'whisper': { time: '毎時10分', frequency: '毎時間' },
+      // 'whisper': { time: '毎時10分', frequency: '毎時間' },  // 2025/09/02 削除済み
       'azure-transcriber': { time: '毎時10分', frequency: '毎時間' },
       'behavior-features': { time: '毎時10分', frequency: '毎時間' },
       'vibe-aggregator': { time: '毎時20分', frequency: '毎時間' },

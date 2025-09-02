@@ -70,13 +70,14 @@ SUPABASE_KEY = os.getenv('SUPABASE_KEY') or os.getenv('VITE_SUPABASE_KEY')
 # 注意: Dockerコンテナ間通信では、コンテナ名を使用する
 # watchme-networkで接続されたコンテナは、コンテナ名で通信可能
 API_CONFIGS = {
-    "whisper": {
-        "endpoint": "http://api-transcriber:8001/fetch-and-transcribe",
-        "status_column": "transcriptions_status",
-        "model": "base",
-        "display_name": "Whisper Transcriber",
-        "type": "file_based"
-    },
+    # 2025/09/02: Whisper API削除済み - Azure Speechへ移行
+    # "whisper": {
+    #     "endpoint": "http://api-transcriber:8001/fetch-and-transcribe",
+    #     "status_column": "transcriptions_status",
+    #     "model": "base",
+    #     "display_name": "Whisper Transcriber (停止中)",
+    #     "type": "file_based"
+    # },
     "vibe-aggregator": {
         "endpoint": "http://api_gen_prompt_mood_chart:8009/generate-mood-prompt-supabase",
         "display_name": "Vibe Aggregator",

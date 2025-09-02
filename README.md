@@ -12,7 +12,7 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 ✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です
 
-**最終更新**: 2025年9月2日  
+**最終更新**: 2025年9月3日  
 **更新履歴**: [CHANGELOG.md](./CHANGELOG.md)を参照してください
 
 #### 🔗 **コンテナ名とAPI対応表（2025年8月10日更新 - 必ず参照）**
@@ -20,7 +20,7 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 | API種類 | UI上の名前 | **実際のコンテナ名** | ポート | エンドポイント | HTTPメソッド | 処理タイプ |
 |---------|-----------|---------------------|--------|----------------|-------------|-----------|
-| **[心理] Whisper書き起こし** | `whisper` | `api-transcriber` | 8001 | `/fetch-and-transcribe` | POST | ファイルベース |
+| ~~**[心理] Whisper書き起こし**~~ | ~~`whisper`~~ | ~~`api-transcriber`~~ | ~~8001~~ | ~~`/fetch-and-transcribe`~~ | ~~POST~~ | ~~ファイルベース~~ | **※2025/09/02削除済み** |
 | **[心理] Azure Speech書き起こし** | `azure-transcriber` | `vibe-transcriber-v2` | 8013 | `/fetch-and-transcribe` | POST | ファイル&デバイスベース |
 | **[心理] プロンプト生成** | `vibe-aggregator` | `api_gen_prompt_mood_chart` | 8009 | `/generate-mood-prompt-supabase` | **GET** ⚠️ | デバイスベース |
 | **[心理] スコアリング** | `vibe-scorer` | `api-gpt-v1` | 8002 | `/analyze-vibegraph-supabase` | POST | デバイスベース |
@@ -41,7 +41,7 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 現在、以下のAPIの自動実行がAPI Managerで管理されています：
 
 ##### ✅ バックエンド実装済み（実際に自動実行される）
-- **[心理] Whisper書き起こし** - ファイルベース自動処理
+- ~~**[心理] Whisper書き起こし**~~ - ~~ファイルベース自動処理~~ ※2025/09/02削除 - Azure Speechへ移行
 - **[行動] 音声イベント検出** - ファイルベース自動処理  
 - **[感情] 音声特徴量抽出** - ファイルベース自動処理
 
@@ -326,7 +326,7 @@ cd /home/ubuntu/watchme-api-manager
 
 | API | 実行時刻 | 頻度 | 処理タイプ |
 |-----|---------|------|-----------|
-| **[心理] Whisper書き起こし** | 毎時10分 | 毎時間 | ファイルベース |
+| ~~**[心理] Whisper書き起こし**~~ | ~~毎時10分~~ | ~~毎時間~~ | ~~ファイルベース~~ | **※2025/09/02削除済み** |
 | **[行動] 音声イベント検出** | 毎時10分 | 毎時間 | ファイルベース |
 | **[心理] プロンプト生成** | 毎時20分 | 毎時間 | デバイスベース |
 | **[行動] 音声イベント集計** | 毎時20分 | 毎時間 | デバイスベース |
@@ -754,12 +754,12 @@ grep SUPABASE_KEY /home/ubuntu/watchme-vault-api-docker/.env
 ##### 2. **🚨 コンテナ間通信の設定（最重要）**
 **問題**: スケジューラーが他のAPIを呼び出せない場合、必ずこの問題です。
 ```bash
-# ❌ エラー例: Failed to resolve 'api-transcriber' 
+# ❌ エラー例: Failed to resolve 'vibe-transcriber-v2' 
 # ❌ エラー例: Failed to resolve 'watchme-behavior-yamnet'
 
 # ✅ 解決方法: 全てのコンテナをwatchme-networkに接続
 # 必須の接続先コンテナ一覧:
-docker network connect watchme-network api-transcriber          # 心理グラフ用
+docker network connect watchme-network vibe-transcriber-v2      # Azure Speech (旧Whisperの代替)
 docker network connect watchme-network api_gen_prompt_mood_chart # 心理グラフ用  
 docker network connect watchme-network api-gpt-v1               # 心理グラフ用
 docker network connect watchme-network api_sed_v1-sed_api-1     # 行動グラフ用
@@ -775,18 +775,19 @@ docker ps --format "{{.Names}}" | grep -E "(api|watchme|vibe|mood|behavior|emoti
 # 出力例:
 # api_sed_v1-sed_api-1     <- これが行動グラフAPI（ポート8004）
 # opensmile-api            <- これが感情グラフAPI（ポート8011）
-# api-transcriber          <- これが心理グラフAPI（ポート8001）
+# vibe-transcriber-v2      <- これがAzure Speech API（ポート8013） ※Whisperは削除済み
 ```
 
 ##### 4. **動作確認方法**
 ```bash
 # 1. ネットワーク接続テスト
-docker exec watchme-scheduler-prod ping -c 1 api-transcriber
+docker exec watchme-scheduler-prod ping -c 1 vibe-transcriber-v2  # Azure Speech
 docker exec watchme-scheduler-prod ping -c 1 api_sed_v1-sed_api-1  
 docker exec watchme-scheduler-prod ping -c 1 opensmile-api
 
 # 2. 手動実行テスト
-docker exec watchme-scheduler-prod python /app/run-api-process-docker.py whisper
+# whisperは2025/09/02削除済み - Azure Speech (azure-transcriber)を使用
+docker exec watchme-scheduler-prod python /app/run-api-process-docker.py azure-transcriber
 docker exec watchme-scheduler-prod python /app/run-api-process-docker.py behavior-features
 
 # 3. WebUI確認
@@ -811,7 +812,7 @@ docker network inspect watchme-network | grep -A 3 "watchme-scheduler-prod"
 docker ps | grep -E "api-transcriber|api_sed_v1-sed_api-1|opensmile-api"
 
 # ✅ チェック5: pingは通るか？
-docker exec watchme-scheduler-prod ping -c 1 api-transcriber
+docker exec watchme-scheduler-prod ping -c 1 vibe-transcriber-v2  # Azure Speech
 ```
 
 #### 🤖 **自動化スクリプト**
@@ -847,7 +848,7 @@ done
 echo ""
 echo "=== 接続テスト ==="
 echo "スケジューラーから主要APIへのpingテスト:"
-docker exec watchme-scheduler-prod ping -c 1 api-transcriber >/dev/null 2>&1 && echo "✅ api-transcriber" || echo "❌ api-transcriber"
+docker exec watchme-scheduler-prod ping -c 1 vibe-transcriber-v2  # Azure Speech >/dev/null 2>&1 && echo "✅ api-transcriber" || echo "❌ api-transcriber"
 docker exec watchme-scheduler-prod ping -c 1 api_sed_v1-sed_api-1 >/dev/null 2>&1 && echo "✅ api_sed_v1-sed_api-1" || echo "❌ api_sed_v1-sed_api-1"
 docker exec watchme-scheduler-prod ping -c 1 opensmile-api >/dev/null 2>&1 && echo "✅ opensmile-api" || echo "❌ opensmile-api"
 
@@ -879,6 +880,7 @@ chmod +x /home/ubuntu/connect-all-containers.sh
 
 | 日付 | バージョン | 内容 |
 |------|-----------|------|
+| 2025-09-03 | v1.5.2 | Whisper API削除に伴うドキュメント更新、Azure Speechへの完全移行完了 |
 | 2025-09-01 | v1.5.1 | ダッシュボード機能改善（device_id取得の簡素化、analysis_resultカラム説明追加） |
 | 2025-09-01 | v1.5.0 | ダッシュボード機能追加、タイムブロック単位プロンプト生成実装 |
 | 2025-08-26 | v1.4.0 | Azure Speech Service API統合改善 |

@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
-import WhisperTranscriberModule from './modules/psychology/whisper-transcriber/WhisperTranscriberModule'
+// import WhisperTranscriberModule from './modules/psychology/whisper-transcriber/WhisperTranscriberModule' // 2025/09/02 削除済み
 import AzureTranscriberModule from './modules/psychology/azure-transcriber/AzureTranscriberModule'
 import AggregatorModule from './modules/psychology/aggregator/AggregatorModule'
 import ScorerModule from './modules/psychology/scorer/ScorerModule'
@@ -18,8 +18,12 @@ function PsychologyPage() {
         <p className="text-gray-600">音声データから心理状態を分析・可視化</p>
       </div>
       
-      {/* Whisper Transcriber モジュール */}
-      <WhisperTranscriberModule />
+      {/* Whisper Transcriber モジュール - 2025/09/02 削除済み */}
+      <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 text-gray-600">
+        <p className="font-semibold">⚠️ Whisper Transcriber は停止中です</p>
+        <p className="text-sm mt-1">Azure Speech Service (下記) をご利用ください</p>
+      </div>
+      {/* <WhisperTranscriberModule /> */}
       
       {/* Azure Transcriber モジュール */}
       <div className="mt-8">

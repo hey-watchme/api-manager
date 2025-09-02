@@ -17,7 +17,7 @@ export const DEVICE_CONFIG = {
 
 // APIエンドポイント設定
 export const API_ENDPOINTS = {
-  whisper: '/fetch-and-transcribe',
+  // whisper: '/fetch-and-transcribe',  // 2025/09/02 削除済み - Azure Speechへ移行
   vibeAggregator: '/generate-mood-prompt-supabase',
   vibeScorer: '/analyze-vibegraph-supabase',
   behaviorFeatures: '/fetch-and-process-paths',
