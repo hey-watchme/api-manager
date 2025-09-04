@@ -642,6 +642,38 @@ VITE_PORT=9001
 
 ## デプロイメント
 
+### 🚨 重要：API ManagerとSchedulerの関係を理解する（必読）
+
+**API Managerサービスは2つのコンテナで構成されています：**
+
+| コンテナ名 | 役割 | ポート | 管理ファイル |
+|-----------|------|--------|------------|
+| **watchme-api-manager-prod** | WebUI（React） | 9001 | docker-compose.prod.yml |
+| **watchme-scheduler-prod** | スケジューラーAPI（Python） | 8015 | docker-compose.all.yml（両方含む） |
+
+### ⚠️ デプロイ時の最重要注意事項
+
+**絶対に間違えてはいけないこと：**
+
+1. **systemd設定は必ず`docker-compose.all.yml`を使用**
+   - ❌ 間違い：`docker-compose.prod.yml`（API Managerのみ起動）
+   - ✅ 正解：`docker-compose.all.yml`（API Manager + Scheduler両方起動）
+
+2. **ネットワーク設定は必ず`external: true`**
+   ```yaml
+   # docker-compose.all.ymlの最後
+   networks:
+     watchme-network:
+       external: true  # ✅ 既存ネットワークを使用
+       # driver: bridge ❌ 新規作成してしまうので絶対NG
+   ```
+
+3. **デプロイ後は両方のコンテナが起動していることを必ず確認**
+   ```bash
+   docker ps | grep -E "api-manager|scheduler"
+   # 両方表示されることを確認
+   ```
+
 ### デプロイ手順
 
 本アプリケーションのデプロイは、ECR (Elastic Container Registry) を利用して行います。フロントエンドとスケジューラーAPIは、それぞれ別のDockerイメージとしてビルドされ、EC2上でコンテナとして実行されます。
@@ -661,21 +693,44 @@ bash /home/ubuntu/watchme-server-configs/scripts/check-infrastructure.sh
 python3 /home/ubuntu/watchme-server-configs/scripts/network_monitor.py --fix
 ```
 
-#### 🚀 クイックデプロイ（推奨）
+#### 🚀 推奨デプロイ手順（安全な方法）
 
-デプロイ作業を簡略化するため、専用のスクリプトを用意しています：
+**重要：必ず両方のコンテナを一緒にデプロイしてください**
 
 ```bash
 # 1. ローカルでイメージをビルドしてECRへプッシュ
-./deploy-frontend.sh        # フロントエンドのデプロイ
-./deploy-scheduler.sh       # スケジューラーAPIのデプロイ
+./deploy-frontend.sh        # API Manager (UI)のイメージをプッシュ
+./deploy-scheduler.sh       # Scheduler APIのイメージをプッシュ
 
-# 2. EC2サーバーでコンテナを展開（SSH接続して実行）
+# 2. EC2サーバーでコンテナを展開
 ssh -i ~/watchme-key.pem ubuntu@3.24.16.82
 cd /home/ubuntu/watchme-api-manager
-./deploy-frontend-ec2.sh   # フロントエンドコンテナの展開
-./deploy-scheduler-ec2.sh  # スケジューラーコンテナの展開
+
+# 3. 設定ファイルの確認（重要！）
+# docker-compose.all.ymlの最後が以下のようになっていることを確認
+tail -5 docker-compose.all.yml
+# networks:
+#   watchme-network:
+#     external: true  ← これが重要！
+
+# 4. 両方のコンテナを一緒に再起動（推奨方法）
+docker-compose -f docker-compose.all.yml pull
+docker-compose -f docker-compose.all.yml down
+docker-compose -f docker-compose.all.yml up -d
+
+# 5. 必ず両方が起動していることを確認
+docker ps | grep -E "api-manager|scheduler"
+# 以下の2行が表示されることを確認：
+# watchme-api-manager-prod ... Up ... 9001
+# watchme-scheduler-prod   ... Up ... 8015
+
+# 6. ヘルスチェック
+curl http://localhost:9001/  # UI応答確認
+curl http://localhost:8015/  # スケジューラー応答確認
 ```
+
+**⚠️ 警告：個別のデプロイスクリプト（deploy-frontend-ec2.sh等）は使用しないでください**
+理由：片方のコンテナだけを再起動してしまい、もう片方が停止する可能性があります。
 
 #### デプロイの基本的な流れ
 
@@ -713,13 +768,12 @@ docker pull 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manage
 docker stop watchme-api-manager-prod watchme-scheduler-prod || true
 docker rm watchme-api-manager-prod watchme-scheduler-prod || true
 
-# docker-compose.all.yml を使用してコンテナを起動
+# ⚠️ 重要：必ずdocker-compose.all.ymlを使用（両方のコンテナを起動）
 cd /home/ubuntu/watchme-api-manager
 docker-compose -f docker-compose.all.yml up -d
 
-# watchme-networkへの接続
-docker network connect watchme-network watchme-api-manager-prod
-docker network connect watchme-network watchme-scheduler-prod
+# 起動確認（両方表示されることを確認）
+docker ps | grep -E "api-manager|scheduler"
 ```
 
 #### デプロイスクリプトの機能
@@ -867,6 +921,11 @@ chmod +x /home/ubuntu/connect-all-containers.sh
 
 本アプリケーションを本番環境で正しく動作させるには、EC2サーバー側で **Nginx** によるルーティング設定と、**systemd** によるサービス管理設定が必要です。
 
+**⚠️ systemd設定の重要な注意事項：**
+- systemdサービス（`watchme-api-manager.service`）は必ず`docker-compose.all.yml`を参照するように設定されています
+- これにより、サーバー再起動時にAPI ManagerとSchedulerの両方が自動起動されます
+- **絶対に`docker-compose.prod.yml`に変更しないでください**（スケジューラーが起動しなくなります）
+
 これらのサーバー設定は、このリポジトリでは管理していません。**サーバー設定に関する全ての情報と設定ファイルは、以下の専用リポジトリで一元管理されています。**
 
 **サーバー設定リポジトリ:**
@@ -904,6 +963,32 @@ chmod +x /home/ubuntu/connect-all-containers.sh
     - ログファイルの権限エラーでスケジューラーが動作しない問題を解決。詳細な診断手順を「スケジューラーが動作しない問題の完全診断ガイド」に追加。
 
 ### デプロイ時によくある問題と対策
+
+#### 0. 🚨 スケジューラーが起動しない（最頻出問題）
+- **症状**: API Manager UIは動作するが、スケジューラーが動かない
+- **原因**: 
+  - `docker-compose.prod.yml`を使ってしまった（API Managerのみ起動）
+  - `docker-compose.all.yml`のネットワーク設定が間違っている
+- **診断方法**:
+  ```bash
+  # 両方のコンテナが起動しているか確認
+  docker ps | grep -E "api-manager|scheduler"
+  # watchme-scheduler-prodが表示されない場合は問題あり
+  ```
+- **解決策**:
+  ```bash
+  # 1. docker-compose.all.ymlのネットワーク設定を確認
+  tail -5 /home/ubuntu/watchme-api-manager/docker-compose.all.yml
+  # external: trueになっていることを確認（driver: bridgeはNG）
+  
+  # 2. 両方のコンテナを再起動
+  cd /home/ubuntu/watchme-api-manager
+  docker-compose -f docker-compose.all.yml down
+  docker-compose -f docker-compose.all.yml up -d
+  
+  # 3. 確認
+  docker ps | grep -E "api-manager|scheduler"
+  ```
 
 #### 1. エンドポイントの混同による404エラー
 - **症状**: APIが404エラーを返す、または「Cannot GET /api/scheduler/api/scheduler/...」のような二重パスエラー
