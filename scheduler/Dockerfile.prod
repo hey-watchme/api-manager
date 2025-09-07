@@ -1,0 +1,49 @@
+# Python 3.12のAlpineイメージを使用（軽量）
+FROM python:3.12-alpine
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# システム依存関係をインストール
+RUN apk add --no-cache \
+    gcc \
+    musl-dev \
+    linux-headers \
+    postgresql-dev \
+    curl
+
+# Pythonファイルをコピー
+COPY scheduler-api-server.py .
+COPY scheduler-api-server-docker.py .
+COPY run-api-process.py .
+COPY run-api-process-docker.py .
+COPY run-api-process-docker-improved.py .
+COPY config.py .
+COPY run_if_enabled.py .
+
+# 依存関係をインストール
+RUN pip install --no-cache-dir \
+    fastapi==0.111.0 \
+    uvicorn==0.30.1 \
+    python-multipart==0.0.9 \
+    supabase==2.5.0 \
+    requests==2.32.3
+
+# 実行権限を付与
+RUN chmod +x *.py
+
+# ログディレクトリを作成
+RUN mkdir -p /var/log/scheduler
+
+# 設定ディレクトリを作成
+RUN mkdir -p /app/config
+
+# ポート8015を公開
+EXPOSE 8015
+
+# ヘルスチェック設定
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8015/health || exit 1
+
+# scheduler APIを起動（Docker版）
+CMD ["uvicorn", "scheduler-api-server-docker:app", "--host", "0.0.0.0", "--port", "8015"]

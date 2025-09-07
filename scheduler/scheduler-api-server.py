@@ -42,7 +42,6 @@ LOG_DIR = "/var/log/scheduler"
 # リクエストモデル
 class SchedulerConfig(BaseModel):
     enabled: bool
-    interval: int
     timeout: Optional[int] = 300
     max_files: Optional[int] = 100
     deviceId: Optional[str] = None
@@ -113,64 +112,10 @@ def get_last_execution_info(api_name: str) -> Dict:
         "isRunning": False
     }
 
-def calculate_next_run(interval_hours: int) -> str:
-    """次回実行時刻計算（cron式に基づく実際の実行時刻）"""
-    now = datetime.now()
-    # 0時起点でN時間ごとの実行時刻を計算
-    # 例：3時間間隔なら 0:00, 3:00, 6:00, 9:00, 12:00, 15:00, 18:00, 21:00
-    current_hour = now.hour
-    
-    # 次の実行時刻の時間を計算
-    next_hour = ((current_hour // interval_hours) + 1) * interval_hours
-    
-    if next_hour >= 24:
-        # 翌日の0時
-        next_run = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-    else:
-        # 今日の次の実行時刻
-        next_run = now.replace(hour=next_hour, minute=0, second=0, microsecond=0)
-    
-    return next_run.isoformat()
+# calculate_next_run関数は削除（使用されていない）
 
-def update_cron_jobs(config: Dict):
-    """cron設定を更新"""
-    try:
-        cron_lines = []
-        
-        for api_name, settings in config["apis"].items():
-            if settings.get("enabled", False):
-                interval = settings.get("interval", 3)
-                cron_expr = f"0 */{interval} * * *"
-                
-                # スケジューラー実行コマンド
-                cmd = f"/home/ubuntu/scheduler/run-api-process.py {api_name}"
-                log_file = get_api_log_file(api_name)
-                
-                cron_lines.append(
-                    f"{cron_expr} ubuntu {cmd} >> {log_file} 2>&1"
-                )
-        
-        # crontabファイル作成
-        cron_content = "\n".join(cron_lines) + "\n" if cron_lines else ""
-        
-        with open("/tmp/watchme-scheduler", "w") as f:
-            f.write(cron_content)
-        
-        # crontabに設定
-        if cron_lines:
-            subprocess.run([
-                "sudo", "cp", "/tmp/watchme-scheduler", "/etc/cron.d/watchme-scheduler"
-            ], check=True)
-            subprocess.run(["sudo", "chmod", "644", "/etc/cron.d/watchme-scheduler"], check=True)
-        else:
-            # 設定が空の場合はcronファイルを削除
-            subprocess.run(["sudo", "rm", "-f", "/etc/cron.d/watchme-scheduler"], check=False)
-        
-        logger.info("cron設定を更新しました")
-        
-    except Exception as e:
-        logger.error(f"cron更新エラー: {e}")
-        raise HTTPException(status_code=500, detail="cron設定の更新に失敗しました")
+# update_cron_jobs関数は削除（使用されていない）
+# 実際のcron設定は /etc/cron.d/watchme-scheduler で手動管理
 
 # API エンドポイント
 @app.get("/")
@@ -188,7 +133,6 @@ async def get_api_status(api_name: str):
     config = load_config()
     api_config = config["apis"].get(api_name, {
         "enabled": False,
-        "interval": 3,
         "timeout": 300,
         "max_files": 100
     })
@@ -197,12 +141,11 @@ async def get_api_status(api_name: str):
     
     return {
         "enabled": api_config.get("enabled", False),
-        "interval": api_config.get("interval", 3),
         "timeout": api_config.get("timeout", 300),
         "max_files": api_config.get("max_files", 100),
         "deviceId": api_config.get("deviceId", None),
         "processDate": api_config.get("processDate", None),
-        "nextRun": calculate_next_run(api_config.get("interval", 3)) if api_config.get("enabled") else None,
+        "nextRun": None,  # cron管理のため計算不可
         **execution_info
     }
 

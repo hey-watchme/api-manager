@@ -101,7 +101,7 @@ API_CONFIGS = {
     },
     "behavior-features": {
         # 行動特徴抽出APIのコンテナ名とポートを指定
-        "endpoint": "http://api_sed_v1-sed_api-1:8004/fetch-and-process-paths",
+        "endpoint": "http://sed-api:8004/fetch-and-process-paths",
         # Supabaseで未処理ファイルを検索するためのカラム名
         "status_column": "behavior_features_status",
         "model": None, # このAPIにモデル指定が不要な場合はNone
@@ -125,6 +125,19 @@ API_CONFIGS = {
         "model": "azure",  # Azureモデルを指定
         "display_name": "Azure Transcriber",
         "type": "file_based"
+    },
+    "timeblock-prompt": {
+        # タイムブロック単位プロンプト生成API
+        "endpoint": "http://api_gen_prompt_mood_chart:8009/generate-timeblock-prompt",
+        "display_name": "Timeblock Prompt Generator",
+        "type": "timeblock_based",  # 新しいタイプ：未処理タイムブロック検出型
+        "method": "GET",
+        "timeout": 120,
+        "status_tables": [  # STATUS管理対象テーブル
+            "vibe_whisper",
+            "behavior_yamnet", 
+            "emotion_opensmile"
+        ]
     }
 }
 
@@ -307,6 +320,100 @@ def call_api(api_name: str, file_paths: list, api_logger=None) -> bool:
         log.error(f"{api_name}: API呼び出しエラー: {e}")
         return False
 
+def get_pending_timeblocks(limit: int = 50, api_logger=None) -> list:
+    """
+    3つのテーブルから未処理（pending）のタイムブロックを検出
+    重複を除いてユニークなタイムブロックのリストを返す
+    """
+    log = api_logger or logger
+    try:
+        supabase = get_supabase_client()
+        
+        # 複数テーブルから未処理データを検出
+        pending_blocks = {}  # キーで重複を管理
+        tables = ['vibe_whisper', 'behavior_yamnet', 'emotion_opensmile']
+        
+        for table in tables:
+            try:
+                response = supabase.table(table) \
+                    .select('device_id, date, time_block') \
+                    .eq('status', 'pending') \
+                    .order('date', desc=False) \
+                    .order('time_block', desc=False) \
+                    .limit(limit) \
+                    .execute()
+                
+                if response.data:
+                    for item in response.data:
+                        # ユニークキーを生成
+                        block_key = f"{item['device_id']}_{item['date']}_{item['time_block']}"
+                        if block_key not in pending_blocks:
+                            pending_blocks[block_key] = {
+                                'device_id': item['device_id'],
+                                'date': item['date'],
+                                'time_block': item['time_block']
+                            }
+                    log.info(f"{table}: {len(response.data)}件の未処理データを検出")
+            except Exception as e:
+                log.warning(f"{table}テーブルからのデータ取得エラー: {e}")
+                continue
+        
+        # リストに変換して制限数まで返す
+        result = list(pending_blocks.values())[:limit]
+        log.info(f"timeblock-prompt: 合計{len(result)}件の未処理タイムブロックを検出")
+        return result
+        
+    except Exception as e:
+        log.error(f"未処理タイムブロック検出エラー: {e}")
+        return []
+
+def call_timeblock_api(device_id: str, date: str, time_block: str, api_logger=None) -> bool:
+    """
+    タイムブロック単位のAPI呼び出し
+    GETメソッドでgenerate-timeblock-promptエンドポイントを呼び出す
+    """
+    log = api_logger or logger
+    try:
+        config = API_CONFIGS['timeblock-prompt']
+        
+        # GETリクエストでパラメータを送信
+        params = {
+            "device_id": device_id,
+            "date": date,
+            "time_block": time_block
+        }
+        
+        log.info(f"timeblock-prompt: API呼び出し開始 (device: {device_id}, date: {date}, block: {time_block})")
+        
+        response = requests.get(
+            config['endpoint'],
+            params=params,
+            timeout=config.get('timeout', 120)
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            # status_updatesフィールドをチェック
+            status_updates = result.get('status_updates', {})
+            if status_updates:
+                log.info(f"timeblock-prompt: 処理成功 - {time_block} (whisper:{status_updates.get('whisper_updated')}, yamnet:{status_updates.get('yamnet_updated')}, opensmile:{status_updates.get('opensmile_updated')})")
+            else:
+                log.info(f"timeblock-prompt: 処理成功 - {time_block}")
+            return True
+        else:
+            log.error(f"timeblock-prompt: 処理失敗 - {response.status_code}: {response.text}")
+            return False
+            
+    except requests.exceptions.Timeout:
+        log.warning(f"timeblock-prompt: API呼び出しタイムアウト（処理は継続中の可能性）")
+        return True
+    except requests.exceptions.ConnectionError as e:
+        log.error(f"timeblock-prompt: API接続エラー - コンテナ名 '{config['endpoint']}' が解決できません。")
+        return False
+    except Exception as e:
+        log.error(f"timeblock-prompt: API呼び出しエラー: {e}")
+        return False
+
 def log_execution(api_name: str, file_count: int, status: str, message: str = "", api_logger=None):
     """実行ログ記録"""
     log = api_logger or logger
@@ -345,7 +452,67 @@ def main():
         
         api_type = config.get('type', 'file_based')
         
-        if api_type == 'device_based':
+        if api_type == 'timeblock_based':
+            # タイムブロックベースの処理（未処理データ自動検出）
+            api_logger.info("=== タイムブロック未処理データ検出処理 ===")
+            
+            # config.jsonから設定を読み込み
+            scheduler_config = load_scheduler_config()
+            api_config = scheduler_config.get('apis', {}).get(api_name, {})
+            batch_limit = api_config.get('batchLimit', 50)
+            
+            # 未処理タイムブロックを取得
+            pending_blocks = get_pending_timeblocks(limit=batch_limit, api_logger=api_logger)
+            
+            if not pending_blocks:
+                api_logger.info("未処理タイムブロックなし")
+                log_execution(api_name, 0, "SUCCESS", "未処理データなし", api_logger)
+                return
+            
+            api_logger.info(f"処理対象: {len(pending_blocks)} タイムブロック")
+            
+            # 各タイムブロックを順次処理
+            success_count = 0
+            failed_count = 0
+            
+            for idx, block in enumerate(pending_blocks, 1):
+                api_logger.info(f"")
+                api_logger.info(f"--- 処理中 {idx}/{len(pending_blocks)}: {block['device_id']}/{block['date']}/{block['time_block']} ---")
+                
+                success = call_timeblock_api(
+                    block['device_id'],
+                    block['date'], 
+                    block['time_block'],
+                    api_logger
+                )
+                
+                if success:
+                    success_count += 1
+                    api_logger.info(f"✅ タイムブロック {block['time_block']} の処理完了")
+                else:
+                    failed_count += 1
+                    api_logger.error(f"❌ タイムブロック {block['time_block']} の処理失敗")
+            
+            # 全体の処理結果をログ出力
+            api_logger.info(f"")
+            api_logger.info(f"=== タイムブロック処理完了 ===")
+            api_logger.info(f"成功: {success_count}/{len(pending_blocks)} タイムブロック")
+            if failed_count > 0:
+                api_logger.warning(f"失敗: {failed_count}/{len(pending_blocks)} タイムブロック")
+            
+            # 実行ログ記録
+            if failed_count == 0:
+                log_execution(api_name, len(pending_blocks), "SUCCESS", 
+                            f"全タイムブロック処理完了 ({success_count}件)", api_logger)
+            elif success_count > 0:
+                log_execution(api_name, len(pending_blocks), "PARTIAL", 
+                            f"一部成功 (成功: {success_count}, 失敗: {failed_count})", api_logger)
+            else:
+                log_execution(api_name, len(pending_blocks), "ERROR", 
+                            f"全タイムブロック処理失敗 ({failed_count}件)", api_logger)
+                sys.exit(1)
+                
+        elif api_type == 'device_based':
             # デバイスベースのAPI処理（全デバイス対応）
             scheduler_config = load_scheduler_config()
             api_config = scheduler_config.get('apis', {}).get(api_name, {})

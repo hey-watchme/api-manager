@@ -24,7 +24,7 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 | **[心理] Azure Speech書き起こし** | `azure-transcriber` | `vibe-transcriber-v2` | 8013 | `/fetch-and-transcribe` | POST | ファイル&デバイスベース |
 | **[心理] プロンプト生成** | `vibe-aggregator` | `api_gen_prompt_mood_chart` | 8009 | `/generate-mood-prompt-supabase` | **GET** ⚠️ | デバイスベース |
 | **[心理] スコアリング** | `vibe-scorer` | `api-gpt-v1` | 8002 | `/analyze-vibegraph-supabase` | POST | デバイスベース |
-| **[行動] 音声イベント検出** | `behavior-features` | `api_sed_v1-sed_api-1` | 8004 | `/fetch-and-process-paths` | POST | ファイルベース |
+| **[行動] 音声イベント検出** | `behavior-features` | `sed-api` | 8004 | `/fetch-and-process-paths` | POST | ファイルベース |
 | **[行動] 音声イベント集計** | `behavior-aggregator` | `api-sed-aggregator` | 8010 | `/analysis/sed` | POST | デバイスベース |
 | **[感情] 音声特徴量抽出** | `emotion-features` | `opensmile-api` | 8011 | `/process/emotion-features` | POST | ファイルベース |
 | **[感情] 感情スコア集計** | `emotion-aggregator` | `opensmile-aggregator` | 8012 | `/analyze/opensmile-aggregator` | POST | デバイスベース |
@@ -304,37 +304,67 @@ cd /home/ubuntu/watchme-api-manager
 
 **⚠️ 重要**: システムには3種類の異なるエンドポイントが存在します。詳細は [エンドポイントの3層構造を理解する](#-エンドポイントの3層構造を理解する重要) セクションを必ず参照してください。
 
-### 🕐 スケジューラーの仕組み（2025年8月11日更新）
+### 🕐 **現在のスケジュール設定一覧（2025年9月7日更新）**
 
-#### 概要
-スケジューラーは、各APIを定期的に自動実行するシステムです。UIからON/OFFの制御は可能ですが、実行時刻は固定されています。
+#### **⚠️ 重要な仕様変更**
+- **Web UIのスケジューラー制御は削除済み**（機能していなかったため）
+- **実際の制御**: cron設定（`/etc/cron.d/watchme-scheduler`）+ config.json（有効/無効のみ）で管理
+- **設定変更**: 手動でのcronファイル編集が必要
 
-#### アーキテクチャ
-```
-[UI (React)] 
-    ↓ ON/OFF設定
-[Scheduler API (Docker)] 
-    ↓ config.json更新
-[Host OS cron] 
-    ↓ 固定時刻で実行
-[run_if_enabled.py] 
-    ↓ config.json確認
-[Docker exec] → 有効なAPIのみ実行
-```
+#### **📋 実行スケジュール一覧**
 
-#### 実行スケジュール
+| 実行時刻 | API名 | 機能 | 頻度 | 有効状態 | 処理タイプ | コンテナ名 |
+|---------|-------|------|------|----------|-----------|-----------|
+| **毎時10分** | `azure-transcriber` | Azure音声書き起こし | 毎時間 | ✅ 有効 | ファイルベース | `vibe-transcriber-v2` |
+| **毎時10分** | `behavior-features` | 行動特徴抽出 | 毎時間 | ✅ 有効 | ファイルベース | `sed-api` |
+| **毎時20分** | `vibe-aggregator` | 心理プロンプト生成（日次） | 毎時間 | ✅ 有効 | デバイスベース | `api_gen_prompt_mood_chart` |
+| **毎時20分** | `behavior-aggregator` | 行動データ集計 | 毎時間 | ✅ 有効 | デバイスベース | `api-sed-aggregator` |
+| **毎時20分** | `emotion-features` | 感情特徴抽出 | 毎時間 | ✅ 有効 | ファイルベース | `opensmile-api` |
+| **毎時30分** | `emotion-aggregator` | 感情データ集計 | 毎時間 | ✅ 有効 | デバイスベース | `opensmile-aggregator` |
+| **毎時40分** | `timeblock-prompt` | タイムブロック単位プロンプト生成 | 毎時間 | ✅ 有効 | タイムブロックベース | `api_gen_prompt_mood_chart` |
+| **30分（3時間ごと）** | `vibe-scorer` | 心理スコアリング | 8回/日※ | ✅ 有効 | デバイスベース | `api-gpt-v1` |
+| ~~毎時10分~~ | ~~`whisper`~~ | ~~Whisper書き起こし~~ | ~~停止~~ | ❌ 無効 | ~~削除済み~~ | ~~削除済み~~ |
 
-| API | 実行時刻 | 頻度 | 処理タイプ |
-|-----|---------|------|-----------|
-| ~~**[心理] Whisper書き起こし**~~ | ~~毎時10分~~ | ~~毎時間~~ | ~~ファイルベース~~ | **※2025/09/02削除済み** |
-| **[行動] 音声イベント検出** | 毎時10分 | 毎時間 | ファイルベース |
-| **[心理] プロンプト生成** | 毎時20分 | 毎時間 | デバイスベース |
-| **[行動] 音声イベント集計** | 毎時20分 | 毎時間 | デバイスベース |
-| **[感情] 音声特徴量抽出** | 毎時20分 | 毎時間 | ファイルベース |
-| **[感情] 感情スコア集計** | 毎時30分 | 毎時間 | デバイスベース |
-| **[心理] スコアリング** | 30分 | 3時間ごと※ | デバイスベース |
+**※ vibe-scorer実行時刻**: 0:30, 3:30, 6:30, 9:30, 12:30, 15:30, 18:30, 21:30（コスト削減のため）
 
-※ 0:30, 3:30, 6:30, 9:30, 12:30, 15:30, 18:30, 21:30
+#### **📊 実行頻度の詳細**
+
+**毎時間実行（24回/日）**:
+- Azure音声書き起こし（毎時10分）
+- 行動特徴抽出（毎時10分）
+- 心理プロンプト生成・日次集計（毎時20分）
+- 行動データ集計（毎時20分）
+- 感情特徴抽出（毎時20分）
+- 感情データ集計（毎時30分）
+- **タイムブロック単位プロンプト生成（毎時40分）** 🆕
+
+**3時間ごと実行（8回/日）**:
+- 心理スコアリング（コスト削減のため頻度を制限）
+
+#### **🆕 timeblock-prompt の特徴**
+- **処理内容**: 3つのテーブル（vibe_whisper, behavior_yamnet, emotion_opensmile）から`pending`ステータスのデータを検出して処理
+- **エンドポイント**: `/generate-timeblock-prompt`（vibe-aggregatorとは異なる）
+- **実行タイミング**: 他のAPIの処理完了後（40分）に実行
+- **バッチ処理**: 1回の実行で最大10件のタイムブロックを処理（config.jsonで調整可能）
+
+#### **🔧 設定変更方法**
+
+1. **有効/無効の切り替え**:
+   ```bash
+   # config.jsonを直接編集
+   sudo nano /home/ubuntu/scheduler/config.json
+   ```
+
+2. **実行時刻の変更**:
+   ```bash  
+   # cronファイルを編集
+   sudo nano /etc/cron.d/watchme-scheduler
+   ```
+
+3. **新しいAPIの追加**:
+   - cronファイルにエントリを追加
+   - config.jsonに設定を追加
+   - run_if_enabled.pyが自動でAPI実行を制御
 
 #### 仕組みの詳細
 
@@ -816,7 +846,7 @@ grep SUPABASE_KEY /home/ubuntu/watchme-vault-api-docker/.env
 docker network connect watchme-network vibe-transcriber-v2      # Azure Speech (旧Whisperの代替)
 docker network connect watchme-network api_gen_prompt_mood_chart # 心理グラフ用  
 docker network connect watchme-network api-gpt-v1               # 心理グラフ用
-docker network connect watchme-network api_sed_v1-sed_api-1     # 行動グラフ用
+docker network connect watchme-network sed-api                    # 行動グラフ用
 docker network connect watchme-network opensmile-api            # 感情グラフ用
 ```
 
@@ -827,7 +857,7 @@ docker network connect watchme-network opensmile-api            # 感情グラ�
 docker ps --format "{{.Names}}" | grep -E "(api|watchme|vibe|mood|behavior|emotion)"
 
 # 出力例:
-# api_sed_v1-sed_api-1     <- これが行動グラフAPI（ポート8004）
+# sed-api                 <- これが行動グラフAPI（ポート8004）
 # opensmile-api            <- これが感情グラフAPI（ポート8011）
 # vibe-transcriber-v2      <- これがAzure Speech API（ポート8013） ※Whisperは削除済み
 ```
@@ -836,7 +866,7 @@ docker ps --format "{{.Names}}" | grep -E "(api|watchme|vibe|mood|behavior|emoti
 ```bash
 # 1. ネットワーク接続テスト
 docker exec watchme-scheduler-prod ping -c 1 vibe-transcriber-v2  # Azure Speech
-docker exec watchme-scheduler-prod ping -c 1 api_sed_v1-sed_api-1  
+docker exec watchme-scheduler-prod ping -c 1 sed-api  
 docker exec watchme-scheduler-prod ping -c 1 opensmile-api
 
 # 2. 手動実行テスト
@@ -863,7 +893,7 @@ docker exec watchme-scheduler-prod env | grep SUPABASE_KEY
 docker network inspect watchme-network | grep -A 3 "watchme-scheduler-prod"
 
 # ✅ チェック4: 対象APIコンテナは動作しているか？
-docker ps | grep -E "api-transcriber|api_sed_v1-sed_api-1|opensmile-api"
+docker ps | grep -E "api-transcriber|sed-api|opensmile-api"
 
 # ✅ チェック5: pingは通るか？
 docker exec watchme-scheduler-prod ping -c 1 vibe-transcriber-v2  # Azure Speech
@@ -886,7 +916,7 @@ CONTAINERS=(
   "api-transcriber"
   "api_gen_prompt_mood_chart"
   "api-gpt-v1"
-  "api_sed_v1-sed_api-1"
+  "sed-api"
   "opensmile-api"
   "watchme-vault-api"
   "watchme-web-prod"
@@ -903,7 +933,7 @@ echo ""
 echo "=== 接続テスト ==="
 echo "スケジューラーから主要APIへのpingテスト:"
 docker exec watchme-scheduler-prod ping -c 1 vibe-transcriber-v2  # Azure Speech >/dev/null 2>&1 && echo "✅ api-transcriber" || echo "❌ api-transcriber"
-docker exec watchme-scheduler-prod ping -c 1 api_sed_v1-sed_api-1 >/dev/null 2>&1 && echo "✅ api_sed_v1-sed_api-1" || echo "❌ api_sed_v1-sed_api-1"
+docker exec watchme-scheduler-prod ping -c 1 sed-api >/dev/null 2>&1 && echo "✅ sed-api" || echo "❌ sed-api"
 docker exec watchme-scheduler-prod ping -c 1 opensmile-api >/dev/null 2>&1 && echo "✅ opensmile-api" || echo "❌ opensmile-api"
 
 echo ""
@@ -1021,7 +1051,7 @@ chmod +x /home/ubuntu/connect-all-containers.sh
   
   # 全APIコンテナを一括で再接続するスクリプト
   for container in api-transcriber api-gpt-v1 api_gen_prompt_mood_chart \
-                   api_sed_v1-sed_api-1 api-sed-aggregator \
+                   sed-api api-sed-aggregator \
                    opensmile-api opensmile-aggregator; do
     docker network connect watchme-network $container 2>/dev/null && \
       echo "✅ $container 接続完了" || echo "⚠️ $container 既に接続済み"
@@ -1157,7 +1187,7 @@ echo "全ログファイルの権限を修正しました"
 
 # 🌐 全APIコンテナのネットワーク接続を一括確認・修正
 for container in api-transcriber vibe-transcriber-v2 api-gpt-v1 api_gen_prompt_mood_chart \
-                 api_sed_v1-sed_api-1 api-sed-aggregator \
+                 sed-api api-sed-aggregator \
                  opensmile-api opensmile-aggregator; do
   if docker ps --format "{{.Names}}" | grep -q "^$container$"; then
     docker network connect watchme-network $container 2>/dev/null && \
@@ -1314,4 +1344,90 @@ WatchMeシステムには**3種類の異なるエンドポイント**が存在�
    
    # 例：emotion-aggregatorのテスト
    docker exec watchme-scheduler-prod python /app/run-api-process-docker.py emotion-aggregator
+   ```
+
+### 🆕 スケジューラーに新しいAPIを追加する詳細手順（2025年9月7日追加）
+
+#### ⚠️ 今回の実装で判明した重要な注意点
+
+スケジューラーにAPIを追加する際、見落としやすい重要な手順があります：
+
+1. **🔴 Dockerコンテナ内のスクリプト更新を忘れずに！**
+   ```bash
+   # ホスト側のスクリプトを更新した後、必ずコンテナ内も更新
+   docker cp /home/ubuntu/scheduler/run-api-process-docker.py \
+             watchme-scheduler-prod:/app/run-api-process-docker.py
+   ```
+   これを忘れると「未対応のAPI」エラーが発生します。
+
+2. **🔴 cronサービスの再起動が必要**
+   ```bash
+   # /etc/cron.d/watchme-scheduler を編集した後
+   sudo systemctl restart cron
+   ```
+   これを忘れるとスケジュールが反映されません。
+
+3. **🔴 ログファイルの権限設定**
+   ```bash
+   sudo touch /var/log/scheduler/scheduler-[API名].log
+   sudo chown ubuntu:ubuntu /var/log/scheduler/scheduler-[API名].log
+   sudo chmod 664 /var/log/scheduler/scheduler-[API名].log
+   ```
+   権限が不適切だとPermission deniedエラーが発生します。
+
+#### 実装手順の詳細
+
+1. **run-api-process-docker.pyへのAPI設定追加**
+   - API_CONFIGS辞書に新しいAPIを追加
+   - 処理タイプを選択：`file_based`、`device_based`、または独自タイプ
+   - 必要に応じてカスタム処理関数を実装
+
+2. **EC2サーバーでの設定**
+   ```bash
+   # スクリプトのバックアップと更新
+   cp /home/ubuntu/scheduler/run-api-process-docker.py \
+      /home/ubuntu/scheduler/run-api-process-docker.py.backup.$(date +%Y%m%d_%H%M%S)
+   
+   # GitHubから最新版を取得（またはローカルから転送）
+   scp -i ~/watchme-key.pem /path/to/local/run-api-process-docker.py \
+       ubuntu@3.24.16.82:/home/ubuntu/scheduler/
+   
+   # Dockerコンテナ内も更新（重要！）
+   docker cp /home/ubuntu/scheduler/run-api-process-docker.py \
+             watchme-scheduler-prod:/app/run-api-process-docker.py
+   ```
+
+3. **cron設定の追加**
+   ```bash
+   # /etc/cron.d/watchme-scheduler に追加
+   # 実行時刻は他のAPIとの依存関係を考慮
+   # 10分: データ収集 → 20分: 初期処理 → 30分: 集計 → 40分: 分析
+   40 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py [API名] >> /var/log/scheduler/cron.log 2>&1
+   
+   # 必ずcronを再起動
+   sudo systemctl restart cron
+   ```
+
+4. **config.jsonへの設定追加**
+   ```bash
+   cat /home/ubuntu/scheduler/config.json | \
+   jq '.apis["[API名]"] = {"enabled": false, "timeout": 120, "batchLimit": 50}' \
+   > /tmp/config.json && mv /tmp/config.json /home/ubuntu/scheduler/config.json
+   ```
+
+5. **動作テスト**
+   ```bash
+   # まずDockerコンテナから直接テスト
+   docker exec watchme-scheduler-prod python /app/run-api-process-docker.py [API名]
+   
+   # 成功したらrun_if_enabled.py経由でテスト
+   python3 /home/ubuntu/scheduler/run_if_enabled.py [API名]
+   ```
+
+6. **本番稼働**
+   ```bash
+   # config.jsonでenabledをtrueに設定
+   cat /home/ubuntu/scheduler/config.json | \
+   jq '.apis["[API名]"].enabled = true' > /tmp/config.json && \
+   mv /tmp/config.json /home/ubuntu/scheduler/config.json
    ```

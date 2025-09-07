@@ -3,7 +3,6 @@ import Card from '../../../components/common/Card'
 import AzureTranscriberForm from './AzureTranscriberForm'
 import AzureTranscriberResults from './AzureTranscriberResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
-import AutoProcessControl from '../../../components/scheduler/AutoProcessControl'
 import azureTranscriberApiClient from '../../../services/AzureTranscriberApiClient'
 
 export default function AzureTranscriberModule() {
@@ -57,13 +56,7 @@ export default function AzureTranscriberModule() {
 
       {/* 自動処理セクション */}
       <div className="mb-8">
-        <AutoProcessControl 
-          apiName="azure-transcriber"
-          displayName="Azure Transcriber"
-          disabled={apiStatus !== 'online'}
-        />
-      </div>
-
+      {/* 自動処理セクションは削除済み（スケジューラーUI機能停止のため） */}
       {/* 手動処理セクション */}
       <div className="border-t pt-6">
         <h4 className="text-md font-medium text-gray-900 mb-4">🔧 手動処理</h4>

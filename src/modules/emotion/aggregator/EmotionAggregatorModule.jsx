@@ -3,7 +3,6 @@ import Card from '../../../components/common/Card'
 import EmotionAggregatorForm from './EmotionAggregatorForm'
 import EmotionAggregatorResults from './EmotionAggregatorResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
-import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
 import DeviceProcessingProgress from '../../../components/common/DeviceProcessingProgress'
 import emotionAggregatorApiClient from '../../../services/EmotionAggregatorApiClient'
 import { DEFAULT_DEVICE_ID } from '../../../config/constants'
@@ -76,13 +75,7 @@ export default function EmotionAggregatorModule() {
 
       {/* 自動処理セクション */}
       <div className="mb-8">
-        <AutoProcessControlWithParams 
-          apiName="emotion-aggregator"
-          displayName="Emotion Aggregator"
-          disabled={apiStatus !== 'online'}
-        />
-      </div>
-
+      {/* 自動処理セクションは削除済み（スケジューラーUI機能停止のため） */}
       {/* 手動処理セクション */}
       <div className="border-t pt-6">
         <h4 className="text-md font-medium text-gray-900 mb-4">🔧 手動処理</h4>

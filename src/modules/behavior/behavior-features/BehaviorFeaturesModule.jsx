@@ -3,7 +3,6 @@ import Card from '../../../components/common/Card'
 import BehaviorFeaturesForm from './BehaviorFeaturesForm'
 import BehaviorFeaturesResults from './BehaviorFeaturesResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
-import AutoProcessControl from '../../../components/scheduler/AutoProcessControl'
 import behaviorFeaturesApiClient from '../../../services/BehaviorFeaturesApiClient'
 
 export default function BehaviorFeaturesModule() {
@@ -61,13 +60,7 @@ export default function BehaviorFeaturesModule() {
         disabled={apiStatus !== 'online'}
       />
 
-      {/* 自動処理セクション */}
-      <div className="mt-8">
-        <AutoProcessControl
-          apiName="behavior-features"
-          displayName="行動特徴抽出"
-        />
-      </div>
+      {/* 自動処理セクションは削除済み（スケジューラーUI機能停止のため） */}
 
       {error && (
         <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">

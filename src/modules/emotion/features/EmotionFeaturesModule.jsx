@@ -3,7 +3,6 @@ import Card from '../../../components/common/Card'
 import EmotionFeaturesForm from './EmotionFeaturesForm'
 import EmotionFeaturesResults from './EmotionFeaturesResults'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
-import AutoProcessControl from '../../../components/scheduler/AutoProcessControl'
 import emotionFeaturesApiClient from '../../../services/EmotionFeaturesApiClient'
 
 export default function EmotionFeaturesModule() {
@@ -67,12 +66,7 @@ export default function EmotionFeaturesModule() {
 
       {/* 自動処理セクション */}
       <div className="mt-8">
-        <AutoProcessControl
-          apiName="emotion-features"
-          displayName="感情特徴抽出"
-        />
-      </div>
-
+      {/* 自動処理セクションは削除済み（スケジューラーUI機能停止のため） */}
       {error && (
         <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
           <p className="text-sm text-red-800">{error}</p>

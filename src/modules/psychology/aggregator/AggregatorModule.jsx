@@ -3,7 +3,6 @@ import AggregatorForm from './AggregatorForm'
 import AggregatorResults from './AggregatorResults'
 import Card from '../../../components/common/Card'
 import ApiStatusIndicator from '../../../components/api/ApiStatusIndicator'
-import AutoProcessControlWithParams from '../../../components/scheduler/AutoProcessControlWithParams'
 import DeviceProcessingProgress from '../../../components/common/DeviceProcessingProgress'
 import aggregatorApiClient from '../../../services/AggregatorApiClient'
 import { DEFAULT_DEVICE_ID } from '../../../config/constants'
@@ -76,13 +75,7 @@ function AggregatorModule() {
 
       {/* 自動処理セクション */}
       <div className="mb-8">
-        <AutoProcessControlWithParams 
-          apiName="vibe-aggregator"
-          displayName="Vibe Aggregator"
-          disabled={apiStatus !== 'online'}
-        />
-      </div>
-
+      {/* 自動処理セクションは削除済み（スケジューラーUI機能停止のため） */}
       {/* 手動処理セクション */}
       <div className="border-t pt-6">
         <h4 className="text-md font-medium text-gray-900 mb-4">🔧 手動処理</h4>
