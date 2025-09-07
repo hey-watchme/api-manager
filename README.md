@@ -322,6 +322,7 @@ cd /home/ubuntu/watchme-api-manager
 | **毎時20分** | `emotion-features` | 感情特徴抽出 | 毎時間 | ✅ 有効 | ファイルベース | `opensmile-api` |
 | **毎時30分** | `emotion-aggregator` | 感情データ集計 | 毎時間 | ✅ 有効 | デバイスベース | `opensmile-aggregator` |
 | **毎時40分** | `timeblock-prompt` | タイムブロック単位プロンプト生成 | 毎時間 | ✅ 有効 | タイムブロックベース | `api_gen_prompt_mood_chart` |
+| **毎時50分** | `timeblock-analysis` | タイムブロック単位ChatGPT分析 | 毎時間 | ✅ 有効 | ダッシュボードベース | `api-gpt-v1` |
 | **30分（3時間ごと）** | `vibe-scorer` | 心理スコアリング | 8回/日※ | ✅ 有効 | デバイスベース | `api-gpt-v1` |
 | ~~毎時10分~~ | ~~`whisper`~~ | ~~Whisper書き起こし~~ | ~~停止~~ | ❌ 無効 | ~~削除済み~~ | ~~削除済み~~ |
 
@@ -337,6 +338,7 @@ cd /home/ubuntu/watchme-api-manager
 - 感情特徴抽出（毎時20分）
 - 感情データ集計（毎時30分）
 - **タイムブロック単位プロンプト生成（毎時40分）** 🆕
+- **タイムブロック単位ChatGPT分析（毎時50分）** 🆕 （2025/09/07追加）
 
 **3時間ごと実行（8回/日）**:
 - 心理スコアリング（コスト削減のため頻度を制限）
@@ -346,6 +348,13 @@ cd /home/ubuntu/watchme-api-manager
 - **エンドポイント**: `/generate-timeblock-prompt`（vibe-aggregatorとは異なる）
 - **実行タイミング**: 他のAPIの処理完了後（40分）に実行
 - **バッチ処理**: 1回の実行で最大10件のタイムブロックを処理（config.jsonで調整可能）
+
+#### **🆕 timeblock-analysis の特徴** （2025/09/07追加）
+- **処理内容**: dashboardテーブルの`status='pending'`かつ`prompt IS NOT NULL`のレコードをChatGPTで分析
+- **エンドポイント**: `POST /analyze-timeblock`（api-gpt-v1コンテナ）
+- **実行タイミング**: timeblock-promptの10分後（50分）に実行
+- **バッチ処理**: 1回の実行で最大50件のレコードを処理（config.jsonで調整可能）
+- **結果保存**: analysis_result、vibe_score、summaryをdashboardテーブルに保存し、statusを'completed'に更新
 
 #### **🔧 設定変更方法**
 
@@ -969,6 +978,7 @@ chmod +x /home/ubuntu/connect-all-containers.sh
 
 | 日付 | バージョン | 内容 |
 |------|-----------|------|
+| 2025-09-07 | v1.5.3 | timeblock-analysisスケジューラー追加、dashboardテーブルのChatGPT分析自動化 |
 | 2025-09-03 | v1.5.2 | Whisper API削除に伴うドキュメント更新、Azure Speechへの完全移行完了 |
 | 2025-09-01 | v1.5.1 | ダッシュボード機能改善（device_id取得の簡素化、analysis_resultカラム説明追加） |
 | 2025-09-01 | v1.5.0 | ダッシュボード機能追加、タイムブロック単位プロンプト生成実装 |

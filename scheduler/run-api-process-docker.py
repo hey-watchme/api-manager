@@ -138,6 +138,16 @@ API_CONFIGS = {
             "behavior_yamnet", 
             "emotion_opensmile"
         ]
+    },
+    "timeblock-analysis": {
+        # タイムブロック単位ChatGPT分析API
+        "endpoint": "http://api-gpt-v1:8002/analyze-timeblock",
+        "display_name": "Timeblock ChatGPT Analysis",
+        "type": "dashboard_based",  # dashboardテーブルのpendingステータスを処理
+        "method": "POST",
+        "timeout": 60,  # ChatGPT処理のため60秒
+        "status_table": "dashboard",  # 対象テーブル
+        "batch_limit": 50  # 一度に処理する最大件数
     }
 }
 
@@ -414,6 +424,94 @@ def call_timeblock_api(device_id: str, date: str, time_block: str, api_logger=No
         log.error(f"timeblock-prompt: API呼び出しエラー: {e}")
         return False
 
+def get_pending_dashboard_items(limit: int = 50, api_logger=None) -> list:
+    """
+    dashboardテーブルから未処理（pending）のアイテムを取得
+    promptが存在し、statusがpendingのレコードを検出
+    """
+    log = api_logger or logger
+    try:
+        supabase = get_supabase_client()
+        
+        # dashboardテーブルからpendingステータスのレコードを取得
+        # promptが存在するもののみ対象
+        response = supabase.table('dashboard') \
+            .select('device_id, date, time_block, prompt') \
+            .eq('status', 'pending') \
+            .not_.is_('prompt', 'null') \
+            .order('date', desc=False) \
+            .order('time_block', desc=False) \
+            .limit(limit) \
+            .execute()
+        
+        if response.data:
+            log.info(f"dashboard: {len(response.data)}件の未処理レコードを検出")
+            return response.data
+        else:
+            log.info(f"dashboard: 未処理レコードなし")
+            return []
+            
+    except Exception as e:
+        log.error(f"dashboard未処理レコード取得エラー: {e}")
+        return []
+
+def call_dashboard_analysis_api(item: dict, api_logger=None) -> bool:
+    """
+    dashboard分析APIを呼び出し、結果をdashboardテーブルに保存
+    処理後にstatusをcompletedに更新
+    """
+    log = api_logger or logger
+    try:
+        config = API_CONFIGS['timeblock-analysis']
+        
+        # POSTリクエストでChatGPT分析を実行
+        request_data = {
+            "prompt": item['prompt'],
+            "device_id": item['device_id'],
+            "date": item['date'],
+            "time_block": item['time_block']
+        }
+        
+        log.info(f"timeblock-analysis: API呼び出し開始 (device: {item['device_id']}, date: {item['date']}, block: {item['time_block']}）")
+        
+        response = requests.post(
+            config['endpoint'],
+            json=request_data,
+            timeout=config.get('timeout', 60)
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            # Supabaseでstatusをcompletedに更新
+            try:
+                supabase = get_supabase_client()
+                update_response = supabase.table('dashboard') \
+                    .update({'status': 'completed', 'processed_at': datetime.now(JST).isoformat()}) \
+                    .eq('device_id', item['device_id']) \
+                    .eq('date', item['date']) \
+                    .eq('time_block', item['time_block']) \
+                    .execute()
+                
+                log.info(f"timeblock-analysis: 処理成功 - {item['time_block']} (vibe_score: {result.get('vibe_score', 'N/A')})")
+                return True
+            except Exception as e:
+                log.error(f"timeblock-analysis: ステータス更新エラー - {e}")
+                return False
+        else:
+            log.error(f"timeblock-analysis: API呼び出し失敗 - {response.status_code}: {response.text}")
+            return False
+            
+    except requests.exceptions.Timeout:
+        log.warning(f"timeblock-analysis: API呼び出しタイムアウト")
+        return False
+    except requests.exceptions.ConnectionError as e:
+        log.error(f"timeblock-analysis: API接続エラー - コンテナ名が解決できません。")
+        return False
+    except Exception as e:
+        log.error(f"timeblock-analysis: API呼び出しエラー: {e}")
+        return False
+
 def log_execution(api_name: str, file_count: int, status: str, message: str = "", api_logger=None):
     """実行ログ記録"""
     log = api_logger or logger
@@ -510,6 +608,61 @@ def main():
             else:
                 log_execution(api_name, len(pending_blocks), "ERROR", 
                             f"全タイムブロック処理失敗 ({failed_count}件)", api_logger)
+                sys.exit(1)
+                
+        elif api_type == 'dashboard_based':
+            # dashboardベースの処理（pendingステータスを処理）
+            api_logger.info("=== Dashboard未処理データ分析処理 ===")
+            
+            # config.jsonから設定を読み込み
+            scheduler_config = load_scheduler_config()
+            api_config = scheduler_config.get('apis', {}).get(api_name, {})
+            batch_limit = api_config.get('batchLimit', 50)
+            
+            # 未処理レコードを取得
+            pending_items = get_pending_dashboard_items(limit=batch_limit, api_logger=api_logger)
+            
+            if not pending_items:
+                api_logger.info("未処理レコードなし")
+                log_execution(api_name, 0, "SUCCESS", "未処理データなし", api_logger)
+                return
+            
+            api_logger.info(f"処理対象: {len(pending_items)} レコード")
+            
+            # 各レコードを順次処理
+            success_count = 0
+            failed_count = 0
+            
+            for idx, item in enumerate(pending_items, 1):
+                api_logger.info(f"")
+                api_logger.info(f"--- 処理中 {idx}/{len(pending_items)}: {item['device_id']}/{item['date']}/{item['time_block']} ---")
+                
+                success = call_dashboard_analysis_api(item, api_logger)
+                
+                if success:
+                    success_count += 1
+                    api_logger.info(f"✅ タイムブロック {item['time_block']} の分析完了")
+                else:
+                    failed_count += 1
+                    api_logger.error(f"❌ タイムブロック {item['time_block']} の分析失敗")
+            
+            # 全体の処理結果をログ出力
+            api_logger.info(f"")
+            api_logger.info(f"=== Dashboard分析処理完了 ===")
+            api_logger.info(f"成功: {success_count}/{len(pending_items)} レコード")
+            if failed_count > 0:
+                api_logger.warning(f"失敗: {failed_count}/{len(pending_items)} レコード")
+            
+            # 実行ログ記録
+            if failed_count == 0:
+                log_execution(api_name, len(pending_items), "SUCCESS", 
+                            f"全レコード分析完了 ({success_count}件)", api_logger)
+            elif success_count > 0:
+                log_execution(api_name, len(pending_items), "PARTIAL", 
+                            f"一部成功 (成功: {success_count}, 失敗: {failed_count})", api_logger)
+            else:
+                log_execution(api_name, len(pending_items), "ERROR", 
+                            f"全レコード分析失敗 ({failed_count}件)", api_logger)
                 sys.exit(1)
                 
         elif api_type == 'device_based':
