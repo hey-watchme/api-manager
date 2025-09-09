@@ -124,7 +124,9 @@ API_CONFIGS = {
         "status_column": "transcriptions_status",
         "model": "azure",  # Azureモデルを指定
         "display_name": "Azure Transcriber",
-        "type": "file_based"
+        "type": "file_based",
+        "batch_size": 10,  # 一度に処理する最大ファイル数を10に制限
+        "timeout": 600  # 10分のタイムアウト
     },
     "timeblock-prompt": {
         # タイムブロック単位プロンプト生成API
@@ -157,25 +159,30 @@ def get_supabase_client() -> Client:
         raise ValueError("Supabase設定が見つかりません")
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def get_pending_files(api_name: str, limit: int = 100, api_logger=None) -> list:
-    """未処理ファイル取得"""
+def get_pending_files(api_name: str, limit: int = 10, api_logger=None) -> list:
+    """未処理ファイル取得（バッチサイズ制限付き）"""
     log = api_logger or logger
     try:
         if api_name not in API_CONFIGS:
             raise ValueError(f"未対応のAPI: {api_name}")
         
         config = API_CONFIGS[api_name]
+        # batch_sizeが設定されている場合はそれを使用
+        actual_limit = config.get('batch_size', limit)
         supabase = get_supabase_client()
         
         response = supabase.table('audio_files') \
             .select('file_path, created_at, device_id') \
             .eq(config['status_column'], 'pending') \
             .order('created_at', desc=False) \
-            .limit(limit) \
+            .limit(actual_limit) \
             .execute()
         
         if response.data:
-            log.info(f"{api_name}: {len(response.data)}件の未処理ファイルを取得")
+            log.info(f"{api_name}: {len(response.data)}件の未処理ファイルを取得（最大{actual_limit}件）")
+            # 各ファイルパスをログに記録
+            for idx, item in enumerate(response.data, 1):
+                log.info(f"  [{idx}/{len(response.data)}] {item['file_path']} (device: {item['device_id']})")
             return [item['file_path'] for item in response.data]
         else:
             log.info(f"{api_name}: 未処理ファイルなし")
@@ -287,14 +294,52 @@ def call_device_based_api(api_name: str, device_id: str, process_date: str, api_
         log.error(f"{api_name}: API呼び出しエラー: {e}")
         return False
 
-def call_api(api_name: str, file_paths: list, api_logger=None) -> bool:
-    """API呼び出し"""
+def update_files_status(api_name: str, file_paths: list, status: str, api_logger=None) -> bool:
+    """ファイルのステータスを更新"""
     log = api_logger or logger
+    try:
+        if api_name not in API_CONFIGS:
+            return False
+        
+        config = API_CONFIGS[api_name]
+        if 'status_column' not in config:
+            return True  # ステータス管理しないAPIの場合はスキップ
+        
+        supabase = get_supabase_client()
+        
+        # ファイルパスごとにステータスを更新
+        for file_path in file_paths:
+            try:
+                response = supabase.table('audio_files') \
+                    .update({config['status_column']: status}) \
+                    .eq('file_path', file_path) \
+                    .execute()
+                log.info(f"  - {file_path}: ステータスを'{status}'に更新")
+            except Exception as e:
+                log.error(f"  - {file_path}: ステータス更新エラー: {e}")
+                return False
+        
+        log.info(f"{api_name}: {len(file_paths)}件のファイルステータスを'{status}'に更新完了")
+        return True
+        
+    except Exception as e:
+        log.error(f"{api_name}: ステータス更新エラー: {e}")
+        return False
+
+def call_api(api_name: str, file_paths: list, api_logger=None) -> bool:
+    """API呼び出し（ステータス管理付き）"""
+    log = api_logger or logger
+    start_time = datetime.now()
+    
     try:
         if api_name not in API_CONFIGS:
             raise ValueError(f"未対応のAPI: {api_name}")
         
         config = API_CONFIGS[api_name]
+        
+        # 処理開始：ステータスをprocessingに更新
+        log.info(f"{api_name}: 処理開始 - {len(file_paths)}件のファイル")
+        update_files_status(api_name, file_paths, 'processing', log)
         
         request_data = {
             "file_paths": file_paths
@@ -304,7 +349,10 @@ def call_api(api_name: str, file_paths: list, api_logger=None) -> bool:
         if config.get("model") is not None:
             request_data["model"] = config["model"]
         
-        log.info(f"{api_name}: API呼び出し開始 ({len(file_paths)}件)")
+        log.info(f"{api_name}: API呼び出し開始")
+        log.info(f"  エンドポイント: {config['endpoint']}")
+        log.info(f"  ファイル数: {len(file_paths)}件")
+        log.info(f"  タイムアウト: {config.get('timeout', 300)}秒")
         
         response = requests.post(
             config['endpoint'],
@@ -312,22 +360,39 @@ def call_api(api_name: str, file_paths: list, api_logger=None) -> bool:
             timeout=config.get('timeout', 300)
         )
         
+        elapsed_time = (datetime.now() - start_time).total_seconds()
+        
         if response.status_code == 200:
             result = response.json()
-            log.info(f"{api_name}: API呼び出し成功 - {result.get('message', 'OK')}")
+            log.info(f"{api_name}: API呼び出し成功 - {result.get('message', 'OK')} (処理時間: {elapsed_time:.2f}秒)")
+            # 成功時：ステータスをcompletedに更新
+            update_files_status(api_name, file_paths, 'completed', log)
             return True
         else:
-            log.error(f"{api_name}: API呼び出し失敗 - {response.status_code}: {response.text}")
+            log.error(f"{api_name}: API呼び出し失敗 - {response.status_code}: {response.text} (処理時間: {elapsed_time:.2f}秒)")
+            # 失敗時：ステータスをfailedに更新
+            update_files_status(api_name, file_paths, 'failed', log)
             return False
             
     except requests.exceptions.Timeout:
-        log.warning(f"{api_name}: API呼び出しタイムアウト（バックグラウンド処理は継続中の可能性）")
-        return True  # タイムアウトでも処理は継続されている可能性があるため成功扱い
+        elapsed_time = (datetime.now() - start_time).total_seconds()
+        log.warning(f"{api_name}: API呼び出しタイムアウト (処理時間: {elapsed_time:.2f}秒)")
+        log.warning(f"  バックグラウンド処理は継続中の可能性があります")
+        # タイムアウトでも処理は継続されている可能性があるため成功扱い（既存の動作を維持）
+        return True
     except requests.exceptions.ConnectionError as e:
-        log.error(f"{api_name}: API接続エラー - コンテナ名 '{config['endpoint']}' が解決できません。watchme-networkへの接続を確認してください。")
+        elapsed_time = (datetime.now() - start_time).total_seconds()
+        log.error(f"{api_name}: API接続エラー (処理時間: {elapsed_time:.2f}秒)")
+        log.error(f"  コンテナ名 '{config['endpoint']}' が解決できません")
+        log.error(f"  watchme-networkへの接続を確認してください")
+        # 接続エラー時：ステータスをpendingに戻す
+        update_files_status(api_name, file_paths, 'pending', log)
         return False
     except Exception as e:
-        log.error(f"{api_name}: API呼び出しエラー: {e}")
+        elapsed_time = (datetime.now() - start_time).total_seconds()
+        log.error(f"{api_name}: API呼び出しエラー: {e} (処理時間: {elapsed_time:.2f}秒)")
+        # その他のエラー時：ステータスをfailedに更新
+        update_files_status(api_name, file_paths, 'failed', log)
         return False
 
 def get_pending_timeblocks(limit: int = 50, api_logger=None) -> list:

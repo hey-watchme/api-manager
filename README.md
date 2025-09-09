@@ -53,6 +53,54 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 ---
 
+## 🔧 Azure Transcriber処理改善（2025年9月9日実装）
+
+### 改善内容
+
+2025年9月9日のアップデートで、Azure Transcriberの処理安定性を大幅に向上させました。
+
+#### 主な改善点
+
+1. **バッチサイズの最適化**
+   - 一度に処理するファイル数を100件から**10件に制限**
+   - Azure Speech Serviceへの負荷を軽減し、タイムアウトリスクを低減
+   - メモリ使用量の削減により、処理の安定性が向上
+
+2. **処理状態の細分化**
+   - `pending` → `processing` → `completed/failed` の状態遷移を実装
+   - 処理中のファイルが明確に識別可能になり、重複処理を防止
+   - エラー時は `failed` 状態に移行し、問題のあるファイルを特定可能
+
+3. **ログ強化**
+   - 各ファイルの処理開始・終了を個別に記録
+   - 処理時間の測定と記録
+   - エンドポイントとタイムアウト設定の明示的な記録
+   - エラー発生時の詳細情報を出力
+
+#### 技術詳細
+
+```python
+# scheduler/run-api-process-docker.py での設定
+"azure-transcriber": {
+    "endpoint": "http://vibe-transcriber-v2:8013/fetch-and-transcribe",
+    "status_column": "transcriptions_status",
+    "model": "azure",
+    "display_name": "Azure Transcriber",
+    "type": "file_based",
+    "batch_size": 10,  # 一度に処理する最大ファイル数を10に制限
+    "timeout": 600  # 10分のタイムアウト
+}
+```
+
+#### 期待される効果
+
+- **処理の透明性向上**: `processing` 状態により、現在処理中のファイルが明確に
+- **エラー処理の改善**: 失敗したファイルが `failed` 状態となり、原因調査が容易に
+- **安定性の向上**: バッチサイズ削減により、メモリ使用量とタイムアウトリスクが軽減
+- **デバッグの容易化**: 詳細なログにより、問題発生時の原因特定が迅速に
+
+---
+
 ## 🚀 Azure Speech Service API統合機能（2025年8月26日実装）
 
 ### 概要
@@ -978,6 +1026,7 @@ chmod +x /home/ubuntu/connect-all-containers.sh
 
 | 日付 | バージョン | 内容 |
 |------|-----------|------|
+| 2025-09-09 | v1.5.4 | Azure Transcriber処理改善（バッチサイズ10件制限、処理状態細分化、ログ強化） |
 | 2025-09-07 | v1.5.3 | timeblock-analysisスケジューラー追加、dashboardテーブルのChatGPT分析自動化 |
 | 2025-09-03 | v1.5.2 | Whisper API削除に伴うドキュメント更新、Azure Speechへの完全移行完了 |
 | 2025-09-01 | v1.5.1 | ダッシュボード機能改善（device_id取得の簡素化、analysis_resultカラム説明追加） |
