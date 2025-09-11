@@ -150,6 +150,21 @@ API_CONFIGS = {
         "timeout": 60,  # ChatGPT処理のため60秒
         "status_table": "dashboard",  # 対象テーブル
         "batch_limit": 50  # 一度に処理する最大件数
+    },
+    "dashboard-summary": {
+        # ダッシュボードサマリー生成API（vibe-aggregatorと同じパターン）
+        "endpoint": "http://api_gen_prompt_mood_chart:8009/generate-dashboard-summary",
+        "display_name": "Dashboard Summary Generator",
+        "type": "device_based",  # vibe-aggregatorと同じdevice_basedタイプ
+        "method": "GET"  # vibe-aggregatorと同じGETメソッド
+    },
+    "dashboard-summary-analysis": {
+        # Dashboard Summary ChatGPT分析API
+        "endpoint": "http://api-gpt-v1:8002/analyze-dashboard-summary",
+        "display_name": "Dashboard Summary ChatGPT Analysis",
+        "type": "device_based",  # dashboard-summaryと同じdevice_basedタイプ
+        "method": "POST",  # POSTメソッドを使用
+        "timeout": 120  # ChatGPT処理のため120秒
     }
 }
 

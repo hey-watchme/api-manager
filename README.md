@@ -352,7 +352,7 @@ cd /home/ubuntu/watchme-api-manager
 
 **⚠️ 重要**: システムには3種類の異なるエンドポイントが存在します。詳細は [エンドポイントの3層構造を理解する](#-エンドポイントの3層構造を理解する重要) セクションを必ず参照してください。
 
-### 🕐 **現在のスケジュール設定一覧（2025年9月7日更新）**
+### 🕐 **現在のスケジュール設定一覧（2025年9月11日更新）**
 
 #### **⚠️ 重要な仕様変更**
 - **Web UIのスケジューラー制御は削除済み**（機能していなかったため）
@@ -371,6 +371,8 @@ cd /home/ubuntu/watchme-api-manager
 | **毎時30分** | `emotion-aggregator` | 感情データ集計 | 毎時間 | ✅ 有効 | デバイスベース | `opensmile-aggregator` |
 | **毎時40分** | `timeblock-prompt` | タイムブロック単位プロンプト生成 | 毎時間 | ✅ 有効 | タイムブロックベース | `api_gen_prompt_mood_chart` |
 | **毎時50分** | `timeblock-analysis` | タイムブロック単位ChatGPT分析 | 毎時間 | ✅ 有効 | ダッシュボードベース | `api-gpt-v1` |
+| **毎時50分** | `dashboard-summary` | ダッシュボードサマリー生成 | 毎時間 | ✅ 有効 | デバイスベース | `api_gen_prompt_mood_chart` |
+| **毎時00分** | `dashboard-summary-analysis` | ダッシュボードサマリーChatGPT分析 | 毎時間 | ✅ 有効 | デバイスベース | `api-gpt-v1` |
 | **30分（3時間ごと）** | `vibe-scorer` | 心理スコアリング | 8回/日※ | ✅ 有効 | デバイスベース | `api-gpt-v1` |
 | ~~毎時10分~~ | ~~`whisper`~~ | ~~Whisper書き起こし~~ | ~~停止~~ | ❌ 無効 | ~~削除済み~~ | ~~削除済み~~ |
 
@@ -385,8 +387,10 @@ cd /home/ubuntu/watchme-api-manager
 - 行動データ集計（毎時20分）
 - 感情特徴抽出（毎時20分）
 - 感情データ集計（毎時30分）
-- **タイムブロック単位プロンプト生成（毎時40分）** 🆕
-- **タイムブロック単位ChatGPT分析（毎時50分）** 🆕 （2025/09/07追加）
+- タイムブロック単位プロンプト生成（毎時40分）
+- タイムブロック単位ChatGPT分析（毎時50分）
+- **ダッシュボードサマリー生成（毎時50分）** 🆕 （2025/09/11追加）
+- **ダッシュボードサマリーChatGPT分析（毎時00分）** 🆕 （2025/09/11追加）
 
 **3時間ごと実行（8回/日）**:
 - 心理スコアリング（コスト削減のため頻度を制限）
@@ -403,6 +407,20 @@ cd /home/ubuntu/watchme-api-manager
 - **実行タイミング**: timeblock-promptの10分後（50分）に実行
 - **バッチ処理**: 1回の実行で最大50件のレコードを処理（config.jsonで調整可能）
 - **結果保存**: analysis_result、vibe_score、summaryをdashboardテーブルに保存し、statusを'completed'に更新
+
+#### **🆕 dashboard-summary の特徴** （2025/09/11追加）
+- **処理内容**: dashboardテーブルの1日分の分析結果を統合してdashboard_summaryテーブルに保存
+- **エンドポイント**: `/generate-dashboard-summary`（api_gen_prompt_mood_chartコンテナ）
+- **実行タイミング**: 毎時50分（timeblock-analysisと同時実行）
+- **処理タイプ**: device_based（全デバイス対応）
+- **結果保存**: prompt、vibe_scores（48要素配列）、average_vibeをdashboard_summaryテーブルに保存
+
+#### **🆕 dashboard-summary-analysis の特徴** （2025/09/11追加）
+- **処理内容**: dashboard_summaryテーブルのpromptをChatGPTで分析
+- **エンドポイント**: `POST /analyze-dashboard-summary`（api-gpt-v1コンテナ）
+- **実行タイミング**: 毎時00分（dashboard-summaryの10分後）
+- **処理タイプ**: device_based（全デバイス対応）
+- **結果保存**: analysis_resultフィールドにChatGPT分析結果を保存
 
 #### **🔧 設定変更方法**
 
@@ -1026,6 +1044,7 @@ chmod +x /home/ubuntu/connect-all-containers.sh
 
 | 日付 | バージョン | 内容 |
 |------|-----------|------|
+| 2025-09-11 | v1.5.5 | dashboard-summaryとdashboard-summary-analysisスケジューラー追加 |
 | 2025-09-09 | v1.5.4 | Azure Transcriber処理改善（バッチサイズ10件制限、処理状態細分化、ログ強化） |
 | 2025-09-07 | v1.5.3 | timeblock-analysisスケジューラー追加、dashboardテーブルのChatGPT分析自動化 |
 | 2025-09-03 | v1.5.2 | Whisper API削除に伴うドキュメント更新、Azure Speechへの完全移行完了 |
