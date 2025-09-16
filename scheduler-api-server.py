@@ -44,7 +44,7 @@ class SchedulerConfig(BaseModel):
     enabled: bool
     interval: int
     timeout: Optional[int] = 300
-    max_files: Optional[int] = 100
+    batch_size: Optional[int] = 10  # max_filesから名前変更、デフォルト値も10に
     deviceId: Optional[str] = None
     processDate: Optional[str] = None
 
@@ -183,7 +183,7 @@ async def get_api_status(api_name: str):
         "enabled": False,
         "interval": 3,
         "timeout": 300,
-        "max_files": 100
+        "batch_size": 10  # デフォルト値を10に変更
     })
     
     execution_info = get_last_execution_info(api_name)
@@ -192,7 +192,7 @@ async def get_api_status(api_name: str):
         "enabled": api_config.get("enabled", False),
         "interval": api_config.get("interval", 3),
         "timeout": api_config.get("timeout", 300),
-        "max_files": api_config.get("max_files", 100),
+        "batch_size": api_config.get("batch_size", api_config.get("max_files", 10)),  # 後方互換性のためmax_filesもチェック
         "deviceId": api_config.get("deviceId", None),
         "processDate": api_config.get("processDate", None),
         "nextRun": calculate_next_run(api_config.get("interval", 3)) if api_config.get("enabled") else None,
@@ -209,7 +209,7 @@ async def toggle_api_scheduler(api_name: str, scheduler_config: SchedulerConfig)
         "enabled": scheduler_config.enabled,
         "interval": scheduler_config.interval,
         "timeout": scheduler_config.timeout,
-        "max_files": scheduler_config.max_files,
+        "batch_size": scheduler_config.batch_size,
         "deviceId": scheduler_config.deviceId,
         "processDate": scheduler_config.processDate,
         "updated_at": datetime.now().isoformat()
