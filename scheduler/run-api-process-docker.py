@@ -207,16 +207,7 @@ def get_pending_files(api_name: str, limit: int = 10, api_logger=None) -> list:
         log.error(f"{api_name}: 未処理ファイル取得エラー: {e}")
         return []
 
-def load_scheduler_config() -> dict:
-    """スケジューラー設定ファイル読み込み"""
-    try:
-        config_file = "/home/ubuntu/scheduler/config.json"
-        if os.path.exists(config_file):
-            with open(config_file, 'r') as f:
-                return json.load(f)
-    except Exception as e:
-        logger.error(f"設定ファイル読み込みエラー: {e}")
-    return {}
+# config.json関連の関数は削除（不要になったため）
 
 def get_all_device_ids_for_date(process_date: str, api_logger=None) -> list:
     """指定日付の全デバイスIDを取得"""
@@ -634,10 +625,8 @@ def main():
             # タイムブロックベースの処理（未処理データ自動検出）
             api_logger.info("=== タイムブロック未処理データ検出処理 ===")
             
-            # config.jsonから設定を読み込み
-            scheduler_config = load_scheduler_config()
-            api_config = scheduler_config.get('apis', {}).get(api_name, {})
-            batch_limit = api_config.get('batchLimit', 50)
+            # 固定値を使用（config.json不要）
+            batch_limit = 50  # デフォルト値
             
             # 未処理タイムブロックを取得
             pending_blocks = get_pending_timeblocks(limit=batch_limit, api_logger=api_logger)
@@ -694,10 +683,8 @@ def main():
             # dashboardベースの処理（pendingステータスを処理）
             api_logger.info("=== Dashboard未処理データ分析処理 ===")
             
-            # config.jsonから設定を読み込み
-            scheduler_config = load_scheduler_config()
-            api_config = scheduler_config.get('apis', {}).get(api_name, {})
-            batch_limit = api_config.get('batchLimit', 50)
+            # 固定値を使用（config.json不要）
+            batch_limit = 50  # デフォルト値
             
             # 未処理レコードを取得
             pending_items = get_pending_dashboard_items(limit=batch_limit, api_logger=api_logger)
@@ -747,11 +734,8 @@ def main():
                 
         elif api_type == 'device_based':
             # デバイスベースのAPI処理（全デバイス対応）
-            scheduler_config = load_scheduler_config()
-            api_config = scheduler_config.get('apis', {}).get(api_name, {})
-            
-            # config.jsonから日付設定を取得（デフォルトは'today'）
-            process_date = api_config.get('processDate', 'today')
+            # 固定値を使用（config.json不要）
+            process_date = 'today'  # 常に今日の日付を使用
             
             # process_dateが"today"の場合はJSTでの今日の日付に変換
             if process_date == "today":

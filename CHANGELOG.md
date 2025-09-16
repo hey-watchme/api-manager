@@ -1,6 +1,21 @@
 # API Manager 更新履歴
 
-## [最新] 2025年9月2日
+## [最新] 2025年9月11日
+### 🚀 スケジューラー機能追加
+- **dashboard-summary**: ダッシュボードサマリー生成（毎時50分実行）
+- **dashboard-summary-analysis**: ダッシュボードサマリーChatGPT分析（毎時00分実行）
+
+## 2025年9月9日  
+### 🔧 Azure Transcriber処理改善
+- バッチサイズを10件に制限
+- 処理状態の細分化（pending → processing → completed/failed）
+- ログ強化
+
+## 2025年9月7日
+### 🚀 timeblock-analysisスケジューラー追加
+- dashboardテーブルのChatGPT分析自動化
+
+## 2025年9月2日
 ### 🔧 ChatGPT分析機能修正
 - **問題**: ChatGPT分析実行時に不適切にプロンプト生成APIを呼び出していた
 - **解決**: Supabaseのdashboardテーブルから直接プロンプトを取得するように修正

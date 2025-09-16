@@ -1,5 +1,4 @@
-# WatchMe API Scheduler - 負荷分散対応 (手動設定)
-# このファイルは手動でのみ編集すること。
+# WatchMe API Scheduler - シンプル化版
 # 
 # 設置方法:
 # 1. このファイルをEC2サーバーにコピー
@@ -11,20 +10,30 @@
 # - 毎時20分: vibe-aggregator (心理プロンプト生成), behavior-aggregator (行動集計), emotion-features (感情特徴抽出)
 # - 毎時30分: emotion-aggregator (感情集計)
 # - 3時間ごとの30分: vibe-scorer (心理スコアリング) - コスト削減のため頻度を下げる
-# 注: whisper (Whisper音声書き起こし) は停止中 - Azure Transcriberに置き換え
+#
+# 注意: config.jsonとrun_if_enabled.pyは廃止。直接実行方式に変更。
 
 # 毎時10分 - ファイルベース処理（第1グループ）
-# 10 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py whisper >> /var/log/scheduler/cron.log 2>&1  # 停止中 - Azure Transcriberに置き換え
-10 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py azure-transcriber >> /var/log/scheduler/cron.log 2>&1
-10 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py behavior-features >> /var/log/scheduler/cron.log 2>&1
+10 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py azure-transcriber >> /var/log/scheduler/cron.log 2>&1
+10 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py behavior-features >> /var/log/scheduler/cron.log 2>&1
 
 # 毎時20分 - デバイスベース処理と追加のファイルベース処理（第2グループ）
-20 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py vibe-aggregator >> /var/log/scheduler/cron.log 2>&1
-20 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py behavior-aggregator >> /var/log/scheduler/cron.log 2>&1
-20 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py emotion-features >> /var/log/scheduler/cron.log 2>&1
+20 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py vibe-aggregator >> /var/log/scheduler/cron.log 2>&1
+20 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py behavior-aggregator >> /var/log/scheduler/cron.log 2>&1
+20 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py emotion-features >> /var/log/scheduler/cron.log 2>&1
 
 # 毎時30分 - デバイスベース処理（第3グループ）
-30 * * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py emotion-aggregator >> /var/log/scheduler/cron.log 2>&1
+30 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py emotion-aggregator >> /var/log/scheduler/cron.log 2>&1
+
+# 毎時40分 - タイムブロック単位プロンプト生成
+40 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py timeblock-prompt >> /var/log/scheduler/cron.log 2>&1
+
+# 毎時50分 - タイムブロック単位ChatGPT分析とダッシュボードサマリー生成
+50 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py timeblock-analysis >> /var/log/scheduler/cron.log 2>&1
+50 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py dashboard-summary >> /var/log/scheduler/cron.log 2>&1
+
+# 毎時00分 - ダッシュボードサマリーChatGPT分析
+0 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py dashboard-summary-analysis >> /var/log/scheduler/cron.log 2>&1
 
 # 3時間ごとの30分 (0:30, 3:30, 6:30, 9:30, 12:30, 15:30, 18:30, 21:30) - コスト削減
-30 */3 * * * ubuntu python3 /home/ubuntu/scheduler/run_if_enabled.py vibe-scorer >> /var/log/scheduler/cron.log 2>&1
+30 */3 * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py vibe-scorer >> /var/log/scheduler/cron.log 2>&1
