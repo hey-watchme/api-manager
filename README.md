@@ -12,7 +12,7 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 
 ✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です
 
-**最終更新**: 2025年9月3日  
+**最終更新**: 2025年9月16日  
 **更新履歴**: [CHANGELOG.md](./CHANGELOG.md)を参照してください
 
 #### 🔗 **コンテナ名とAPI対応表（2025年8月10日更新 - 必ず参照）**
@@ -37,6 +37,45 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
    - 新: `{"device_id": "uuid", "local_date": "2025-08-26", "model": "azure"}`
    - 旧: `{"file_paths": ["path1", "path2"], "model": "azure"}`
 
+
+---
+
+## 🔧 スケジューラーアーキテクチャのシンプル化（2025年9月16日実装）
+
+### 改善内容
+
+2025年9月16日のアップデートで、スケジューラーの複雑性を大幅に削減し、管理を簡素化しました。
+
+#### 主な変更点
+
+1. **config.jsonの廃止**
+   - 設定の分散を解消し、すべての設定を`run-api-process-docker.py`に統合
+   - UIからのON/OFF制御を廃止（すべてのAPIは常に有効）
+
+2. **run_if_enabled.pyの削除**
+   - 不要な中間層を排除
+   - cronから直接`docker exec`でスクリプトを実行
+
+3. **Azure Transcriberのクォータ対策**
+   - batch_sizeを10に固定（Azure Speech Servicesのクォータエラー対策）
+   - 設定の不整合（max_files vs batch_size）を解消
+
+#### 技術詳細
+
+```bash
+# 旧方式（config.json経由）
+python3 /home/ubuntu/scheduler/run_if_enabled.py azure-transcriber
+
+# 新方式（直接実行）
+docker exec watchme-scheduler-prod python /app/run-api-process-docker.py azure-transcriber
+```
+
+#### 期待される効果
+
+- **管理の簡素化**: 設定が1箇所に集約され、メンテナンスが容易に
+- **エラーの削減**: 設定の不整合や依存関係のエラーが解消
+- **パフォーマンスの向上**: 不要な中間処理を排除
+- **Azure クォータエラーの軽減**: 処理数を適切に制限
 
 ---
 
@@ -339,13 +378,13 @@ cd /home/ubuntu/watchme-api-manager
 
 **⚠️ 重要**: システムには3種類の異なるエンドポイントが存在します。詳細は [エンドポイントの3層構造を理解する](#-エンドポイントの3層構造を理解する重要) セクションを必ず参照してください。
 
-## 🕐 **スケジュール設定（2025年9月11日更新）**
+## 🕐 **スケジュール設定（2025年9月16日更新）**
 
 ### 📋 実行スケジュール一覧
 
 | 実行時刻 | API名 | 機能 | 頻度 | 有効状態 | 処理タイプ | コンテナ名 |
 |---------|-------|------|------|----------|-----------|-----------|
-| **毎時10分** | `azure-transcriber` | Azure音声書き起こし | 毎時間 | ✅ 有効 | ファイルベース | `vibe-transcriber-v2` |
+| **毎時10分** | `azure-transcriber` | Azure音声書き起こし（最大10ファイル/回） | 毎時間 | ✅ 有効 | ファイルベース | `vibe-transcriber-v2` |
 | **毎時10分** | `behavior-features` | 行動特徴抽出 | 毎時間 | ✅ 有効 | ファイルベース | `sed-api` |
 | **毎時20分** | `vibe-aggregator` | 心理プロンプト生成（日次） | 毎時間 | ✅ 有効 | デバイスベース | `api_gen_prompt_mood_chart` |
 | **毎時20分** | `behavior-aggregator` | 行動データ集計 | 毎時間 | ✅ 有効 | デバイスベース | `api-sed-aggregator` |
@@ -381,13 +420,13 @@ cd /home/ubuntu/watchme-api-manager
 - **処理内容**: 3つのテーブル（vibe_whisper, behavior_yamnet, emotion_opensmile）から`pending`ステータスのデータを検出して処理
 - **エンドポイント**: `/generate-timeblock-prompt`（vibe-aggregatorとは異なる）
 - **実行タイミング**: 他のAPIの処理完了後（40分）に実行
-- **バッチ処理**: 1回の実行で最大10件のタイムブロックを処理（config.jsonで調整可能）
+- **バッチ処理**: 1回の実行で最大50件のタイムブロックを処理（固定値）
 
 #### **🆕 timeblock-analysis の特徴** （2025/09/07追加）
 - **処理内容**: dashboardテーブルの`status='pending'`かつ`prompt IS NOT NULL`のレコードをChatGPTで分析
 - **エンドポイント**: `POST /analyze-timeblock`（api-gpt-v1コンテナ）
 - **実行タイミング**: timeblock-promptの10分後（50分）に実行
-- **バッチ処理**: 1回の実行で最大50件のレコードを処理（config.jsonで調整可能）
+- **バッチ処理**: 1回の実行で最大50件のレコードを処理（固定値）
 - **結果保存**: analysis_result、vibe_score、summaryをdashboardテーブルに保存し、statusを'completed'に更新
 
 #### **🆕 dashboard-summary の特徴** （2025/09/11追加）
@@ -404,39 +443,39 @@ cd /home/ubuntu/watchme-api-manager
 - **処理タイプ**: device_based（全デバイス対応）
 - **結果保存**: analysis_resultフィールドにChatGPT分析結果を保存
 
-#### **🔧 設定変更方法**
+#### **🔧 スケジューラー仕様（2025年9月16日シンプル化）**
 
-1. **有効/無効の切り替え**:
-   ```bash
-   # config.jsonを直接編集
-   sudo nano /home/ubuntu/scheduler/config.json
-   ```
+**重要な変更**:
+- ✅ **config.json廃止** - 設定はすべてrun-api-process-docker.py内で管理
+- ✅ **run_if_enabled.py廃止** - cronから直接実行
+- ✅ **ON/OFF制御廃止** - すべてのAPIは常に有効
 
-2. **実行時刻の変更**:
-   ```bash  
-   # cronファイルを編集
-   sudo nano /etc/cron.d/watchme-scheduler
-   ```
+**実行方法**:
+```bash
+# cronから直接Dockerコンテナ内でスクリプトを実行
+docker exec watchme-scheduler-prod python /app/run-api-process-docker.py [API名]
+```
 
-3. **新しいAPIの追加**:
+**設定変更方法**:
+1. **実行時刻の変更**: `/etc/cron.d/watchme-scheduler`を編集
+2. **バッチサイズ等の変更**: `scheduler/run-api-process-docker.py`のAPI_CONFIGS辞書を編集
+3. **新しいAPIの追加**: 
+   - `run-api-process-docker.py`にAPI設定を追加
    - cronファイルにエントリを追加
-   - config.jsonに設定を追加
-   - run_if_enabled.pyが自動でAPI実行を制御
 
 #### 仕組みの詳細
 
-1. **UIからの制御**
-   - API Managerの画面で各APIのON/OFFを切り替え
-   - 設定は `/home/ubuntu/scheduler/config.json` に保存
-   - 実行間隔の変更はできません（固定スケジュール）
-
-2. **cron設定** (`/etc/cron.d/watchme-scheduler`)
-   - ホストOS側で固定時刻にスクリプトを実行
+1. **cron設定** (`/etc/cron.d/watchme-scheduler`)
+   - ホストOS側で固定時刻にDockerコンテナ内のスクリプトを実行
    - 負荷分散のため、APIごとに実行時刻をずらしている
+   - 例: `10 * * * * ubuntu docker exec watchme-scheduler-prod python /app/run-api-process-docker.py azure-transcriber`
 
-3. **実行制御** (`run_if_enabled.py`)
-   - cronから呼ばれるPythonスクリプト
-   - config.jsonを読み、APIが有効な場合のみ実行
+2. **API設定** (`run-api-process-docker.py`の`API_CONFIGS`辞書)
+   - 各APIのエンドポイント、バッチサイズ、タイムアウトを定義
+   - 設定変更にはコードの修正とデプロイが必要
+
+3. **Azure Transcriberの制限**
+   - **batch_size: 10** - Azure Speech Servicesのクォータ対策として最大10ファイル/回に制限
    - `docker exec` コマンドでコンテナ内のAPIを起動
 
 4. **ログ管理**
