@@ -36,9 +36,9 @@ export default function BehaviorFeaturesModule() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">🎯 Behavior Features（行動特徴抽出）</h3>
+            <h3 className="text-lg font-semibold text-gray-900">🎯 AST音響イベント検出（行動特徴抽出）</h3>
             <p className="text-sm text-gray-600 mt-1">
-              SED音響イベント検出により、音声データから行動パターンを検出・抽出します。
+              Audio Spectrogram Transformerを使用して、527種類の音響イベントを高精度に検出します。
             </p>
           </div>
           <ApiStatusIndicator status={apiStatus} />
@@ -60,7 +60,6 @@ export default function BehaviorFeaturesModule() {
         disabled={apiStatus !== 'online'}
       />
 
-      {/* 自動処理セクションは削除済み（スケジューラーUI機能停止のため） */}
 
       {error && (
         <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">

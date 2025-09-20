@@ -55,7 +55,7 @@ export default function EmotionAggregatorModule() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">📊 感情分析（OpenSMILE Aggregator）</h3>
+            <h3 className="text-lg font-semibold text-gray-900">📊 感情分析（SUPERB Aggregator）</h3>
             <p className="text-sm text-gray-600 mt-1">
               抽出された感情特徴量を分析し、時系列の感情変化パターンを生成します。
             </p>
@@ -73,9 +73,6 @@ export default function EmotionAggregatorModule() {
         </div>
       </div>
 
-      {/* 自動処理セクション */}
-      <div className="mb-8">
-      {/* 自動処理セクションは削除済み（スケジューラーUI機能停止のため） */}
       {/* 手動処理セクション */}
       <div className="border-t pt-6">
         <h4 className="text-md font-medium text-gray-900 mb-4">🔧 手動処理</h4>

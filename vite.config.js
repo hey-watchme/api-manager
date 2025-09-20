@@ -27,6 +27,16 @@ export default defineConfig({
         target: 'https://api.hey-watch.me',
         changeOrigin: true,
         secure: true
+      },
+      '/behavior-features': {
+        target: 'https://api.hey-watch.me',
+        changeOrigin: true,
+        secure: true
+      },
+      '/emotion-features': {
+        target: 'https://api.hey-watch.me',
+        changeOrigin: true,
+        secure: true
       }
     }
   }

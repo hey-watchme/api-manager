@@ -40,9 +40,9 @@ export default function EmotionFeaturesModule() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">😊 感情特徴抽出（OpenSMILE）</h3>
+            <h3 className="text-lg font-semibold text-gray-900">😊 SUPERB感情認識（感情特徴抽出）</h3>
             <p className="text-sm text-gray-600 mt-1">
-              音声ファイルから感情特徴量（eGeMAPSv02）を抽出して、データベースに保存します。
+              wav2vec2ベースの最新モデルを使用して8種類の感情を高精度に分類します。
             </p>
           </div>
           <ApiStatusIndicator status={apiStatus} />
@@ -64,9 +64,6 @@ export default function EmotionFeaturesModule() {
         disabled={apiStatus !== 'online'}
       />
 
-      {/* 自動処理セクション */}
-      <div className="mt-8">
-      {/* 自動処理セクションは削除済み（スケジューラーUI機能停止のため） */}
       {error && (
         <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
           <p className="text-sm text-red-800">{error}</p>

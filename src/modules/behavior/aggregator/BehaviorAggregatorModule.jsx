@@ -103,9 +103,6 @@ export default function BehaviorAggregatorModule() {
         </div>
       </div>
 
-      {/* 自動処理セクション */}
-      <div className="mb-8">
-      {/* 自動処理セクションは削除済み（スケジューラーUI機能停止のため） */}
       {/* 手動処理セクション */}
       <div className="border-t pt-6">
         <h4 className="text-md font-medium text-gray-900 mb-4">🔧 手動処理</h4>

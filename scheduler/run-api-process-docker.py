@@ -100,21 +100,21 @@ API_CONFIGS = {
         "type": "device_based"
     },
     "behavior-features": {
-        # 行動特徴抽出APIのコンテナ名とポートを指定
-        "endpoint": "http://sed-api:8004/fetch-and-process-paths",
+        # AST API（行動特徴抽出）のコンテナ名とポートを指定
+        "endpoint": "http://ast-api:8017/fetch-and-process-paths",
         # Supabaseで未処理ファイルを検索するためのカラム名
         "status_column": "behavior_features_status",
         "model": None, # このAPIにモデル指定が不要な場合はNone
-        "display_name": "行動特徴抽出",
+        "display_name": "AST音響イベント検出",
         "type": "file_based"
     },
     "emotion-features": {
-        # 感情特徴抽出APIのコンテナ名とポートを指定
-        "endpoint": "http://opensmile-api:8011/process/emotion-features",
+        # SUPERB API（感情特徴抽出）のコンテナ名とポートを指定
+        "endpoint": "http://superb-api:8018/process/emotion-features",
         # Supabaseで未処理ファイルを検索するためのカラム名
         "status_column": "emotion_features_status",
         "model": None, # このAPIにモデル指定が不要な場合はNone
-        "display_name": "感情特徴抽出",
+        "display_name": "SUPERB感情認識",
         "type": "file_based"
     },
     "azure-transcriber": {
