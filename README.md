@@ -2,25 +2,27 @@
 
 ## 概要
 
-API Managerは、WatchMeプラットフォームの複数のマイクロサービスAPIを統合管理するためのWebアプリケーションです。各APIの手動実行、スケジュール実行、パラメータ管理などを一元的に行うことができます。
+API Managerは、WatchMeプラットフォームの複数のマイクロサービスAPIを統合管理するためのWebアプリケーションです。
 
-**本番URL**: https://api.hey-watch.me/manager  
-**開発環境**: http://localhost:9001  
-**GitHubリポジトリ**: https://github.com/matsumotokaya/watchme-api-manager
+### 主要機能
+- マイクロサービスAPIの手動実行
+- スケジュール実行管理
+- パラメータ管理
+- 処理状況モニタリング
 
-### 📊 本番環境デプロイ状況
+### アクセス情報
+- **本番URL**: https://api.hey-watch.me/manager  
+- **開発環境**: http://localhost:9001  
+- **GitHubリポジトリ**: https://github.com/matsumotokaya/watchme-api-manager
+- **変更履歴**: [CHANGELOG.md](./CHANGELOG.md)
 
-✅ **デプロイ完了** - API Managerは本番環境で正常に稼働中です
+## システムアーキテクチャ
 
-**最終更新**: 2025年9月20日  
-**更新履歴**: [CHANGELOG.md](./CHANGELOG.md)を参照してください
+### コンテナ名とAPI対応表
+各APIサービスのコンテナ名、ポート番号、エンドポイント一覧：
 
-#### 🔗 **コンテナ名とAPI対応表（2025年8月10日更新 - 必ず参照）**
-スケジューラーが各APIと通信する際の**正確なコンテナ名**とポート番号：
-
-| API種類 | UI上の名前 | **実際のコンテナ名** | ポート | エンドポイント | HTTPメソッド | 処理タイプ |
-|---------|-----------|---------------------|--------|----------------|-------------|-----------|
-| ~~**[心理] Whisper書き起こし**~~ | ~~`whisper`~~ | ~~`api-transcriber`~~ | ~~8001~~ | ~~`/fetch-and-transcribe`~~ | ~~POST~~ | ~~ファイルベース~~ | **※2025/09/02削除済み** |
+| API種類 | UI名 | コンテナ名 | ポート | エンドポイント | メソッド | 処理タイプ |
+|---------|------|-----------|--------|---------------|---------|-----------|
 | **[心理] Azure Speech書き起こし** | `azure-transcriber` | `vibe-transcriber-v2` | 8013 | `/fetch-and-transcribe` | POST | ファイル&デバイスベース |
 | **[心理] プロンプト生成** | `vibe-aggregator` | `api_gen_prompt_mood_chart` | 8009 | `/generate-mood-prompt-supabase` | **GET** ⚠️ | デバイスベース |
 | **[心理] スコアリング** | `vibe-scorer` | `api-gpt-v1` | 8002 | `/analyze-vibegraph-supabase` | POST | デバイスベース |
@@ -29,131 +31,23 @@ API Managerは、WatchMeプラットフォームの複数のマイクロサー�
 | **[感情] 音声特徴量抽出** | `emotion-features` | `opensmile-api` | 8011 | `/process/emotion-features` | POST | ファイルベース |
 | **[感情] 感情スコア集計** | `emotion-aggregator` | `opensmile-aggregator` | 8012 | `/analyze/opensmile-aggregator` | POST | デバイスベース |
 
-**⚠️ 重要な注意事項:**
-1. UIに表示される名前と実際のコンテナ名は異なります！
-2. `vibe-aggregator`のみGETメソッドを使用（他はすべてPOST）
-3. Dockerコンテナ内では`localhost`ではなく、必ずコンテナ名を使用すること
-4. **Azure Speech API**: 新旧2つのインターフェースを統合サポート
-   - 新: `{"device_id": "uuid", "local_date": "2025-08-26", "model": "azure"}`
-   - 旧: `{"file_paths": ["path1", "path2"], "model": "azure"}`
+### APIインターフェース仕様
+- コンテナ間通信では`localhost`ではなくコンテナ名を使用
+- `vibe-aggregator`のみGETメソッド（他はPOST）
+- Azure Speech APIは新旧2つのインターフェースをサポート
 
 
----
 
-## 📢 重要な変更（2025年9月20日）
 
-### スケジューラーUIの完全削除
+## 機能詳細
 
-2025年9月20日のアップデートで、フロントエンドからスケジューラー関連のUIを完全に削除しました。
-
-#### 変更内容
-- ✅ 各APIモジュールから「自動処理」セクションを削除
-- ✅ スケジューラーの設定表示（有効/無効、実行時刻、エラー回数など）を削除
-- ✅ スケジューラーは引き続きバックエンドで正常動作（cronによる自動実行）
-
-#### 理由
-- スケジューラーの設定はREADMEに記載済みで、UIでの表示は不要
-- UIとバックエンドの設定の不整合を防ぐ
-- よりシンプルで保守しやすいアーキテクチャへの移行
-
-**注意**: スケジューラー機能自体は削除されていません。cronによる自動実行は継続されています。
-
----
-
-## 🔧 スケジューラーアーキテクチャのシンプル化（2025年9月16日実装）
-
-### 改善内容
-
-2025年9月16日のアップデートで、スケジューラーの複雑性を大幅に削減し、管理を簡素化しました。
-
-#### 主な変更点
-
-1. **config.jsonの廃止**
-   - 設定の分散を解消し、すべての設定を`run-api-process-docker.py`に統合
-   - UIからのON/OFF制御を廃止（すべてのAPIは常に有効）
-
-2. **run_if_enabled.pyの削除**
-   - 不要な中間層を排除
-   - cronから直接`docker exec`でスクリプトを実行
-
-3. **Azure Transcriberのクォータ対策**
-   - batch_sizeを10に固定（Azure Speech Servicesのクォータエラー対策）
-   - 設定の不整合（max_files vs batch_size）を解消
-
-#### 技術詳細
-
-```bash
-# 旧方式（config.json経由）
-python3 /home/ubuntu/scheduler/run_if_enabled.py azure-transcriber
-
-# 新方式（直接実行）
-docker exec watchme-scheduler-prod python /app/run-api-process-docker.py azure-transcriber
-```
-
-#### 期待される効果
-
-- **管理の簡素化**: 設定が1箇所に集約され、メンテナンスが容易に
-- **エラーの削減**: 設定の不整合や依存関係のエラーが解消
-- **パフォーマンスの向上**: 不要な中間処理を排除
-- **Azure クォータエラーの軽減**: 処理数を適切に制限
-
----
-
-## 🔧 Azure Transcriber処理改善（2025年9月9日実装）
-
-### 改善内容
-
-2025年9月9日のアップデートで、Azure Transcriberの処理安定性を大幅に向上させました。
-
-#### 主な改善点
-
-1. **バッチサイズの最適化**
-   - 一度に処理するファイル数を100件から**10件に制限**
-   - Azure Speech Serviceへの負荷を軽減し、タイムアウトリスクを低減
-   - メモリ使用量の削減により、処理の安定性が向上
-
-2. **処理状態の細分化**
-   - `pending` → `processing` → `completed/failed` の状態遷移を実装
-   - 処理中のファイルが明確に識別可能になり、重複処理を防止
-   - エラー時は `failed` 状態に移行し、問題のあるファイルを特定可能
-
-3. **ログ強化**
-   - 各ファイルの処理開始・終了を個別に記録
-   - 処理時間の測定と記録
-   - エンドポイントとタイムアウト設定の明示的な記録
-   - エラー発生時の詳細情報を出力
-
-#### 技術詳細
-
-```python
-# scheduler/run-api-process-docker.py での設定
-"azure-transcriber": {
-    "endpoint": "http://vibe-transcriber-v2:8013/fetch-and-transcribe",
-    "status_column": "transcriptions_status",
-    "model": "azure",
-    "display_name": "Azure Transcriber",
-    "type": "file_based",
-    "batch_size": 10,  # 一度に処理する最大ファイル数を10に制限
-    "timeout": 600  # 10分のタイムアウト
-}
-```
-
-#### 期待される効果
-
-- **処理の透明性向上**: `processing` 状態により、現在処理中のファイルが明確に
-- **エラー処理の改善**: 失敗したファイルが `failed` 状態となり、原因調査が容易に
-- **安定性の向上**: バッチサイズ削減により、メモリ使用量とタイムアウトリスクが軽減
-- **デバッグの容易化**: 詳細なログにより、問題発生時の原因特定が迅速に
-
----
-
-## 🚀 Azure Speech Service API統合機能（2025年8月26日実装）
+### Azure Speech Service API統合機能
 
 ### 概要
 
 Azure Speech Service APIの統合機能は、WatchMeプラットフォームとの完全統合により、デバイスID + 日付による効率的なバッチ処理を可能にします。従来のfile_pathsインターフェースに加え、新しいWatchMeシステム統合インターフェースをサポートします。
 
-**アクセスURL**: https://api.hey-watch.me/manager/psychology/azure-transcriber
+**エンドポイント**: `/psychology/azure-transcriber`
 
 ### 主要機能
 
@@ -186,11 +80,6 @@ Azure Speech Service APIの統合機能は、WatchMeプラットフォームと�
 - **AWS S3統合**: 音声ファイルを直接取得して高速処理
 - **エラーハンドリング強化**: より安定したAPIレスポンス処理
 
-#### 🎨 UI/UX改善
-
-- **前向きなメッセージ**: Azure Speech Service SDK 1.45.0の安定性をアピール
-- **処理情報の明確化**: タイムアウト10分、自動保存についての案内
-- **警告の削除**: 問題解決により不要になった警告表示を撤廃
 
 ### 開発環境対応
 
@@ -215,15 +104,13 @@ constructor() {
 }
 ```
 
----
-
-## 📊 ダッシュボード機能（2025年9月1日実装・更新）
+### ダッシュボード機能
 
 ### 概要
 
 ダッシュボード機能は、30分単位（タイムブロック）での高精度なプロンプト生成を可能にする新機能です。従来の1日単位の処理に加えて、より細かい時間単位での心理状態分析が可能になりました。
 
-**アクセスURL**: https://api.hey-watch.me/manager/dashboard
+**エンドポイント**: `/dashboard`
 
 ### 主要機能
 
@@ -295,15 +182,13 @@ const result = await dashboardApiClient.generateTimeblockPrompt(
 )
 ```
 
----
-
-## 🎵 オーディオファイル機能（2025年8月25日実装）
+### オーディオファイル管理機能
 
 ### 概要
 
 オーディオファイル機能は、WatchMeプラットフォームで録音された音声ファイルの一覧表示・再生・ダウンロードを可能にする新機能です。VaultAPIと連携し、署名付きURLによる安全なファイルアクセスを提供します。
 
-**アクセスURL**: https://api.hey-watch.me/manager/audio
+**エンドポイント**: `/audio`
 
 ### 主要機能
 
@@ -398,77 +283,123 @@ cd /home/ubuntu/watchme-api-manager
 
 **⚠️ 重要**: システムには3種類の異なるエンドポイントが存在します。詳細は [エンドポイントの3層構造を理解する](#-エンドポイントの3層構造を理解する重要) セクションを必ず参照してください。
 
-## 🕐 **スケジュール設定（2025年9月16日更新）**
+## スケジュール設定
 
-### 📋 実行スケジュール一覧
+### 処理モード
 
-| 実行時刻 | API名 | 機能 | 頻度 | 有効状態 | 処理タイプ | コンテナ名 |
-|---------|-------|------|------|----------|-----------|-----------|
-| **毎時10分** | `azure-transcriber` | Azure音声書き起こし（最大10ファイル/回） | 毎時間 | ✅ 有効 | ファイルベース | `vibe-transcriber-v2` |
-| **毎時10分** | `behavior-features` | 行動特徴抽出 | 毎時間 | ✅ 有効 | ファイルベース | `sed-api` |
-| **毎時20分** | `vibe-aggregator` | 心理プロンプト生成（日次） | 毎時間 | ✅ 有効 | デバイスベース | `api_gen_prompt_mood_chart` |
-| **毎時20分** | `behavior-aggregator` | 行動データ集計 | 毎時間 | ✅ 有効 | デバイスベース | `api-sed-aggregator` |
-| **毎時20分** | `emotion-features` | 感情特徴抽出 | 毎時間 | ✅ 有効 | ファイルベース | `opensmile-api` |
-| **毎時30分** | `emotion-aggregator` | 感情データ集計 | 毎時間 | ✅ 有効 | デバイスベース | `opensmile-aggregator` |
-| **毎時40分** | `timeblock-prompt` | タイムブロック単位プロンプト生成 | 毎時間 | ✅ 有効 | タイムブロックベース | `api_gen_prompt_mood_chart` |
-| **毎時50分** | `timeblock-analysis` | タイムブロック単位ChatGPT分析 | 毎時間 | ✅ 有効 | ダッシュボードベース | `api-gpt-v1` |
-| **毎時50分** | `dashboard-summary` | ダッシュボードサマリー生成 | 毎時間 | ✅ 有効 | デバイスベース | `api_gen_prompt_mood_chart` |
-| **毎時00分** | `dashboard-summary-analysis` | ダッシュボードサマリーChatGPT分析 | 毎時間 | ✅ 有効 | デバイスベース | `api-gpt-v1` |
-| **30分（3時間ごと）** | `vibe-scorer` | 心理スコアリング | 8回/日※ | ✅ 有効 | デバイスベース | `api-gpt-v1` |
-| ~~毎時10分~~ | ~~`whisper`~~ | ~~Whisper書き起こし~~ | ~~停止~~ | ❌ 無効 | ~~削除済み~~ | ~~削除済み~~ |
+#### 1. タイムブロック処理（Lambda実行）
+- **頻度**: 30分ごと（48回/日）
+- **トリガー**: S3アップロード → Lambda自動起動
+- **目的**: 30分単位の心理状態分析
+- **実行環境**: AWS Lambda
 
-**※ vibe-scorer実行時刻**: 0:30, 3:30, 6:30, 9:30, 12:30, 15:30, 18:30, 21:30（コスト削減のため）
+#### 2. 累積分析処理（Cronスケジューラー）
+- **頻度**: 1時間ごと（24回/日）
+- **目的**: その時点までの統合分析をダッシュボードに表示
+- **処理内容**: 0時〜現在時刻の全タイムブロックを統合分析
+- **実行環境**: EC2 Cronスケジューラー
 
-#### **📊 実行頻度の詳細**
+### 現在の実行スケジュール
 
-**毎時間実行（24回/日）**:
-- Azure音声書き起こし（毎時10分）
-- 行動特徴抽出（毎時10分）
-- 心理プロンプト生成・日次集計（毎時20分）
-- 行動データ集計（毎時20分）
-- 感情特徴抽出（毎時20分）
-- 感情データ集計（毎時30分）
-- タイムブロック単位プロンプト生成（毎時40分）
-- タイムブロック単位ChatGPT分析（毎時50分）
-- **ダッシュボードサマリー生成（毎時50分）** 🆕 （2025/09/11追加）
-- **ダッシュボードサマリーChatGPT分析（毎時00分）** 🆕 （2025/09/11追加）
+#### 累積分析処理（Cronスケジューラー）
 
-**3時間ごと実行（8回/日）**:
-- 心理スコアリング（コスト削減のため頻度を制限）
+##### 1. **ダッシュボードサマリー生成**
+| 項目 | 内容 |
+|------|------|
+| **実行時刻** | 毎時50分（24回/日） |
+| **処理タイプ** | 累積分析処理 |
+| **API名** | `dashboard-summary` |
+| **コンテナ** | `api_gen_prompt_mood_chart` |
+| **エンドポイント** | `/generate-dashboard-summary` |
+| **処理内容** | その時点までの全タイムブロックを統合 |
+| **入力** | `dashboard`テーブル（status='completed'） |
+| **出力** | `dashboard_summary`テーブル |
+| **保存データ** | • `prompt`: 累積型評価プロンプト<br>• `vibe_scores`: 48要素配列<br>• `average_vibe`: 平均スコア |
 
-#### **🆕 timeblock-prompt の特徴**
+##### 2. **ダッシュボードサマリーChatGPT分析**
+| 項目 | 内容 |
+|------|------|
+| **実行時刻** | 毎時00分（24回/日） |
+| **処理タイプ** | 累積分析処理 |
+| **API名** | `dashboard-summary-analysis` |
+| **コンテナ** | `api-gpt-v1` |
+| **エンドポイント** | `/analyze-dashboard-summary` |
+| **処理内容** | 累積プロンプトをChatGPTで分析 |
+| **入力** | `dashboard_summary`の`prompt` |
+| **出力** | `dashboard_summary`の`analysis_result` |
+| **保存データ** | • `cumulative_evaluation`: 累積評価文<br>• `mood_trajectory`: 感情傾向<br>• `current_state_score`: 現在スコア |
+
+### Lambda移行済みタスク
+
+以下のタイムブロック処理はすべてLambdaに移行し、S3アップロードをトリガーに自動実行されます：
+
+#### 第1段階：基礎分析（並列実行）
+| API名 | 機能 | 保存先 | 状態 |
+|-------|------|--------|------|
+| `azure-transcriber` | Azure音声書き起こし | `vibe_whisper` | ✅ Lambda実行中 |
+| `behavior-features` (AST API) | 音響イベント検出 | `behavior_yamnet` | ✅ Lambda実行中 |
+| `emotion-features` (SUPERB API) | 感情認識 | `emotion_opensmile` | ✅ Lambda実行中 |
+
+#### 第2段階：データ集計（非同期）
+| API名 | 機能 | 保存先 | 状態 |
+|-------|------|--------|------|
+| `behavior-aggregator` | 行動パターン集計 | `behavior_summary` | ✅ Lambda実行中 |
+| `emotion-aggregator` | 感情スコア集計 | `emotion_opensmile_summary` | ✅ Lambda実行中 |
+
+#### 第3段階：タイムブロック気分分析
+| API名 | 機能 | 保存先 | 状態 |
+|-------|------|--------|------|
+| `timeblock-prompt` (Vibe Aggregator) | プロンプト生成 | `dashboard` (prompt) | ✅ Lambda実行中 |
+| `timeblock-analysis` (Vibe Scorer) | ChatGPT分析 | `dashboard` (vibe_score, summary) | 🚧 実装予定 |
+
+### 未使用・削除済みAPI
+
+| API名 | 機能 | 理由 |
+|-------|------|------|
+| `vibe-aggregator` | 心理プロンプト生成（日次） | 元々使用していない |
+| `vibe-scorer` | 心理スコアリング（日次） | 元々使用していない |
+| `whisper` | Whisper書き起こし | 2025/09/02削除済み |
+
+### 実行頻度のまとめ
+
+#### **現在のスケジューラー稼働状況**
+- **累積分析処理のみ**: 2タスク（毎時実行）
+  - ダッシュボードサマリー生成（毎時50分）
+  - ダッシュボードサマリーChatGPT分析（毎時00分）
+
+#### **Lambda移行による変化**
+- **タイムブロック処理**: Cronスケジューラー → Lambda（S3トリガー）
+  - 頻度: 定期実行（24〜48回/日） → イベント駆動（48回/日）
+  - 利点: リアルタイム処理、スケーラブル、エラー耐性向上
+
 - **処理内容**: 3つのテーブル（vibe_whisper, behavior_yamnet, emotion_opensmile）から`pending`ステータスのデータを検出して処理
 - **エンドポイント**: `/generate-timeblock-prompt`（vibe-aggregatorとは異なる）
 - **実行タイミング**: 他のAPIの処理完了後（40分）に実行
 - **バッチ処理**: 1回の実行で最大50件のタイムブロックを処理（固定値）
 
-#### **🆕 timeblock-analysis の特徴** （2025/09/07追加）
 - **処理内容**: dashboardテーブルの`status='pending'`かつ`prompt IS NOT NULL`のレコードをChatGPTで分析
 - **エンドポイント**: `POST /analyze-timeblock`（api-gpt-v1コンテナ）
 - **実行タイミング**: timeblock-promptの10分後（50分）に実行
 - **バッチ処理**: 1回の実行で最大50件のレコードを処理（固定値）
 - **結果保存**: analysis_result、vibe_score、summaryをdashboardテーブルに保存し、statusを'completed'に更新
 
-#### **🆕 dashboard-summary の特徴** （2025/09/11追加）
 - **処理内容**: dashboardテーブルの1日分の分析結果を統合してdashboard_summaryテーブルに保存
 - **エンドポイント**: `/generate-dashboard-summary`（api_gen_prompt_mood_chartコンテナ）
 - **実行タイミング**: 毎時50分（timeblock-analysisと同時実行）
 - **処理タイプ**: device_based（全デバイス対応）
 - **結果保存**: prompt、vibe_scores（48要素配列）、average_vibeをdashboard_summaryテーブルに保存
 
-#### **🆕 dashboard-summary-analysis の特徴** （2025/09/11追加）
 - **処理内容**: dashboard_summaryテーブルのpromptをChatGPTで分析
 - **エンドポイント**: `POST /analyze-dashboard-summary`（api-gpt-v1コンテナ）
 - **実行タイミング**: 毎時00分（dashboard-summaryの10分後）
 - **処理タイプ**: device_based（全デバイス対応）
 - **結果保存**: analysis_resultフィールドにChatGPT分析結果を保存
 
-#### **🔧 スケジューラー仕様（2025年9月16日シンプル化）**
+### スケジューラー仕様
 
-**重要な変更**:
-- ✅ **config.json廃止** - 設定はすべてrun-api-process-docker.py内で管理
-- ✅ **run_if_enabled.py廃止** - cronから直接実行
-- ✅ **ON/OFF制御廃止** - すべてのAPIは常に有効
+- 設定はrun-api-process-docker.py内で管理
+- cronから直接Dockerコンテナ内で実行
+- すべてのAPIは常に有効
 
 **実行方法**:
 ```bash
@@ -549,11 +480,11 @@ docker exec watchme-scheduler-prod python /app/run-api-process-docker.py [API名
 
 ---
 
-## 🎨 UI仕様・操作方法（2025年8月21日更新）
+## UI仕様・操作方法
 
-### 📱 全デバイス対応UI
+### 全デバイス対応UI
 
-2025年8月21日のアップデートで、**デバイスID入力を完全に廃止**し、**全デバイス自動処理**に対応しました。
+デバイスID入力を廃止し、全デバイス自動処理に対応しています。
 
 #### 🔧 手動処理セクション
 

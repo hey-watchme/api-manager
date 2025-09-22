@@ -1,6 +1,19 @@
 # API Manager 更新履歴
 
-## [最新] 2025年9月20日
+## [2.0.0] 2025年9月22日
+### 🔄 Lambda移行による大規模アーキテクチャ変更
+- **タイムブロック処理をLambdaに完全移行**
+  - 第1段階（基礎分析）: azure-transcriber, behavior-features (AST), emotion-features (SUPERB)
+  - 第2段階（集計）: behavior-aggregator, emotion-aggregator
+  - 第3段階（気分分析）: timeblock-prompt, timeblock-analysis
+- **累積分析処理のみスケジューラー継続**
+  - dashboard-summary（毎時50分）
+  - dashboard-summary-analysis（毎時00分）
+- **処理モードの明確化**
+  - タイムブロック処理: S3トリガーによるイベント駆動（48回/日）
+  - 累積分析処理: Cronスケジューラー（24回/日）
+
+## [1.9.0] 2025年9月20日
 ### 🎯 スケジューラーUIの完全削除
 - **削除内容**: フロントエンドからスケジューラー関連のUI要素を完全に削除
   - 「自動処理」セクションの削除
