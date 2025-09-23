@@ -39,7 +39,9 @@ jobs:
 
     - name: Login to Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      uses: aws-actions/amazon-ecr-login@v2
+      with:
+        mask-password: 'true'
 
     - name: Build Docker image
       run: |
@@ -66,25 +68,14 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-
     - name: Deploy to EC2
-      env:
-        EC2_HOST: ${{ secrets.EC2_HOST }}
-        EC2_USER: ${{ secrets.EC2_USER }}
-        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-      run: |
-        # SSH鍵の設定
-        echo "$EC2_SSH_KEY" > private_key.pem
-        chmod 600 private_key.pem
-        
-        # EC2にSSHして最新イメージをプルして再起動
-        ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: 22
+        script: |
           # ECRログイン
           aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com
           
@@ -94,6 +85,9 @@ jobs:
           # コンテナを停止して削除
           docker stop api-manager-frontend || true
           docker rm api-manager-frontend || true
+          
+          # Docker networkが存在しない場合は作成
+          docker network create watchme-network 2>/dev/null || true
           
           # 新しいコンテナを起動
           docker run -d \
@@ -107,7 +101,3 @@ jobs:
           sleep 5
           docker ps | grep api-manager-frontend
           echo "Frontend deployment completed successfully"
-        EOF
-        
-        # SSH鍵を削除
-        rm private_key.pem

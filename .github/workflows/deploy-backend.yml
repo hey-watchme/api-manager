@@ -31,7 +31,9 @@ jobs:
 
     - name: Login to Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      uses: aws-actions/amazon-ecr-login@v2
+      with:
+        mask-password: 'true'
 
     - name: Build Docker image
       run: |
@@ -58,25 +60,14 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-
     - name: Deploy to EC2
-      env:
-        EC2_HOST: ${{ secrets.EC2_HOST }}
-        EC2_USER: ${{ secrets.EC2_USER }}
-        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-      run: |
-        # SSH鍵の設定
-        echo "$EC2_SSH_KEY" > private_key.pem
-        chmod 600 private_key.pem
-        
-        # EC2にSSHして最新イメージをプルして再起動
-        ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: 22
+        script: |
           # ECRログイン
           aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com
           
@@ -87,14 +78,29 @@ jobs:
           docker stop watchme-scheduler-prod || true
           docker rm watchme-scheduler-prod || true
           
-          # 新しいコンテナを起動
-          docker run -d \
-            --name watchme-scheduler-prod \
-            --network watchme-network \
-            -p 8015:8015 \
-            --restart unless-stopped \
-            --env-file /home/ubuntu/watchme-api-manager/.env \
-            754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager-scheduler:latest
+          # Docker networkが存在しない場合は作成
+          docker network create watchme-network 2>/dev/null || true
+          
+          # 環境変数ファイルの存在確認
+          ENV_FILE="/home/ubuntu/watchme-api-manager/.env"
+          if [ -f "$ENV_FILE" ]; then
+            # 環境変数ファイルがある場合
+            docker run -d \
+              --name watchme-scheduler-prod \
+              --network watchme-network \
+              -p 8015:8015 \
+              --restart unless-stopped \
+              --env-file $ENV_FILE \
+              754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager-scheduler:latest
+          else
+            # 環境変数ファイルがない場合（デフォルト設定で起動）
+            docker run -d \
+              --name watchme-scheduler-prod \
+              --network watchme-network \
+              -p 8015:8015 \
+              --restart unless-stopped \
+              754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager-scheduler:latest
+          fi
           
           # ネットワーク接続の確認と再接続
           docker network connect watchme-network watchme-scheduler-prod 2>/dev/null || true
@@ -112,7 +118,3 @@ jobs:
           docker logs --tail 20 watchme-scheduler-prod
           
           echo "Backend/Scheduler deployment completed successfully"
-        EOF
-        
-        # SSH鍵を削除
-        rm private_key.pem
