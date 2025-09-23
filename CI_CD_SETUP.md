@@ -25,7 +25,7 @@ GitHubリポジトリの Settings → Secrets and variables → Actions から�
 | `AWS_SECRET_ACCESS_KEY` | AWS IAMユーザーのシークレットキー | `wJal...` |
 | `EC2_HOST` | EC2インスタンスのIPアドレス | `3.24.16.82` |
 | `EC2_USER` | EC2のユーザー名 | `ubuntu` |
-| `EC2_SSH_KEY` | EC2接続用のプライベートキー | `-----BEGIN RSA PRIVATE KEY-----...` |
+| `EC2_SSH_PRIVATE_KEY` | EC2接続用のプライベートキー | `-----BEGIN RSA PRIVATE KEY-----...` |
 
 ### シークレットの設定方法
 
@@ -34,7 +34,7 @@ GitHubリポジトリの Settings → Secrets and variables → Actions から�
 3. "New repository secret" をクリック
 4. Name と Secret value を入力して保存
 
-### EC2_SSH_KEYの設定
+### EC2_SSH_PRIVATE_KEYの設定
 
 ```bash
 # ローカルでプライベートキーの内容をコピー
