@@ -170,45 +170,51 @@ graph TD
 
 ## 🚀 デプロイメント
 
+### 🔄 自動デプロイ（CI/CD）
+
+**2025年9月23日より、GitHub Actionsによる自動デプロイに移行しました。**
+
+#### デプロイ方法
+`main`ブランチにプッシュすると自動的にデプロイされます：
+
+```bash
+git push origin main
+```
+
+#### デプロイフロー
+1. **GitHub Actions**が自動的に起動
+2. **Dockerイメージ**のビルド
+3. **Amazon ECR**へのプッシュ
+4. **EC2インスタンス**での自動更新
+
+#### 対象コンポーネント
+- **Frontend**: `src/`、`public/`、`package.json`などの変更時
+- **Backend/Scheduler**: `scheduler/`、`requirements.txt`の変更時
+
+詳細は [CI/CD設定ガイド](./CI_CD_SETUP.md) を参照してください。
+
 ### 開発環境セットアップ
 
 ```bash
-# フロントエンド起動
-cd frontend
+# リポジトリのクローン
+git clone git@github.com:hey-watchme/api-manager.git
+cd api-manager
+
+# 依存関係のインストール
 npm install
+
+# 開発サーバー起動
 npm run dev  # http://localhost:9001
-
-# バックエンド起動
-cd backend
-pip install -r requirements.txt
-python app.py  # http://localhost:9002
-```
-
-### 本番環境デプロイ
-
-```bash
-# 1. Dockerイメージのビルドとプッシュ
-./deploy-frontend.sh
-./deploy-backend.sh
-
-# 2. EC2でのデプロイ
-ssh -i ~/watchme-key.pem ubuntu@3.24.16.82
-cd /home/ubuntu/watchme-api-manager
-./deploy-frontend-ec2.sh
-./deploy-backend-ec2.sh
 ```
 
 ### 環境変数設定
 
 ```bash
-# Frontend (.env)
+# .env ファイル
+VITE_SUPABASE_URL=https://qvtlwotzuzbavrzqhyvt.supabase.co
+VITE_SUPABASE_KEY=your-supabase-anon-key
 VITE_API_BASE_URL=http://localhost:9002  # 開発
 VITE_VAULT_API_BASE_URL=https://api.hey-watch.me  # 本番
-
-# Backend (.env)
-FLASK_ENV=development
-SCHEDULER_ENABLED=true
-DATABASE_URL=postgresql://...
 ```
 
 ---
@@ -290,4 +296,4 @@ docker logs api-manager-backend | grep SCHEDULER
 
 ---
 
-*最終更新: 2025年9月23日*
+*最終更新: 2025年9月23日 - CI/CD自動デプロイに移行*
