@@ -4,7 +4,7 @@ import FetchPendingFilesButton from '../../../components/common/FetchPendingFile
 import AudioFilesService from '../../../services/AudioFilesService'
 import { DEFAULT_DEVICE_ID } from '../../../config/constants'
 
-export default function AzureTranscriberForm({ onSubmit, loading, disabled }) {
+export default function AzureTranscriberForm({ onSubmit, loading, disabled, onError }) {
   const [filePaths, setFilePaths] = useState('')
   const [model, setModel] = useState('azure')
 
@@ -35,6 +35,7 @@ export default function AzureTranscriberForm({ onSubmit, loading, disabled }) {
           <FetchPendingFilesButton
             onFetch={setFilePaths}
             fetchFunction={() => AudioFilesService.getPendingAudioFiles()}
+            onError={onError}
             disabled={disabled}
             loading={loading}
           />

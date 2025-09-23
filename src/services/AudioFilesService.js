@@ -28,9 +28,27 @@ class AudioFilesService {
     }
   }
 
-  // Transcriptions用
+  // Transcriptions用 - completed以外のすべてのファイルを取得
   async getPendingAudioFiles(limit = 50) {
-    return this.getPendingFilesByStatus('transcriptions_status', limit)
+    try {
+      const { data, error } = await supabase
+        .from('audio_files')
+        .select('file_path, created_at, device_id, transcriptions_status')
+        .neq('transcriptions_status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+
+      if (error) {
+        console.error('Supabaseエラー:', error)
+        throw new Error(`データベースエラー: ${error.message}`)
+      }
+
+      console.log(`未処理ファイル取得: ${data?.length || 0}件 (completed以外)`)
+      return data || []
+    } catch (error) {
+      console.error('audio_files (completed以外)の取得に失敗:', error)
+      throw error
+    }
   }
 
   // Behavior Features用

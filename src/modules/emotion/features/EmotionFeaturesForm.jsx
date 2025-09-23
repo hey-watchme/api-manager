@@ -4,7 +4,7 @@ import FetchPendingFilesButton from '../../../components/common/FetchPendingFile
 import AudioFilesService from '../../../services/AudioFilesService'
 import { DEFAULT_DEVICE_ID } from '../../../config/constants'
 
-export default function EmotionFeaturesForm({ onSubmit, loading, disabled }) {
+export default function EmotionFeaturesForm({ onSubmit, loading, disabled, onError }) {
   const [filePaths, setFilePaths] = useState('')
   const [featureSet, setFeatureSet] = useState('eGeMAPSv02')
   const [includeRawFeatures, setIncludeRawFeatures] = useState(false)
@@ -36,6 +36,7 @@ export default function EmotionFeaturesForm({ onSubmit, loading, disabled }) {
           <FetchPendingFilesButton
             onFetch={setFilePaths}
             fetchFunction={() => AudioFilesService.getPendingEmotionFiles()}
+            onError={onError}
             disabled={disabled}
             loading={loading}
           />

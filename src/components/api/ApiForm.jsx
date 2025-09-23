@@ -10,6 +10,7 @@ export default function ApiForm({
   submitButtonText,
   infoMessage,
   children,
+  onError,
 }) {
   const [filePaths, setFilePaths] = useState('');
 
@@ -39,6 +40,7 @@ export default function ApiForm({
             <FetchPendingFilesButton
               onFetch={setFilePaths}
               fetchFunction={fetchFunction}
+              onError={onError}
               disabled={disabled}
               loading={loading}
             />

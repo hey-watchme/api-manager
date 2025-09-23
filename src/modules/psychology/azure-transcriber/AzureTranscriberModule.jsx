@@ -62,6 +62,7 @@ export default function AzureTranscriberModule() {
           onSubmit={handleSubmit}
           loading={loading}
           disabled={apiStatus !== 'online'}
+          onError={setError}
         />
 
         {error && (

@@ -58,6 +58,7 @@ export default function BehaviorFeaturesModule() {
         onSubmit={handleSubmit}
         loading={loading}
         disabled={apiStatus !== 'online'}
+        onError={setError}
       />
 
 

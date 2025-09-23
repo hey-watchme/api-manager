@@ -1,0 +1,118 @@
+name: Deploy Backend/Scheduler to ECR
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scheduler/**'
+      - 'requirements.txt'
+      - '.github/workflows/deploy-backend.yml'
+
+env:
+  AWS_REGION: ap-southeast-2
+  ECR_REPOSITORY: watchme-api-manager-scheduler
+  AWS_ACCOUNT_ID: 754724220380
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build Docker image
+      run: |
+        docker build -f scheduler/Dockerfile -t ${{ env.ECR_REPOSITORY }} scheduler/
+
+    - name: Tag and push image to ECR
+      run: |
+        # タグを作成
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        ECR_REGISTRY=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+        
+        # latest タグ
+        docker tag ${{ env.ECR_REPOSITORY }}:latest $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest
+        docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest
+        
+        # タイムスタンプタグ
+        docker tag ${{ env.ECR_REPOSITORY }}:latest $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$TIMESTAMP
+        docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$TIMESTAMP
+        
+        echo "Image pushed with tags: latest and $TIMESTAMP"
+
+  deploy-to-ec2:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Deploy to EC2
+      env:
+        EC2_HOST: ${{ secrets.EC2_HOST }}
+        EC2_USER: ${{ secrets.EC2_USER }}
+        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      run: |
+        # SSH鍵の設定
+        echo "$EC2_SSH_KEY" > private_key.pem
+        chmod 600 private_key.pem
+        
+        # EC2にSSHして最新イメージをプルして再起動
+        ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+          # ECRログイン
+          aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com
+          
+          # 最新イメージをプル
+          docker pull 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager-scheduler:latest
+          
+          # 既存のスケジューラーコンテナを停止して削除
+          docker stop watchme-scheduler-prod || true
+          docker rm watchme-scheduler-prod || true
+          
+          # 新しいコンテナを起動
+          docker run -d \
+            --name watchme-scheduler-prod \
+            --network watchme-network \
+            -p 8015:8015 \
+            --restart unless-stopped \
+            --env-file /home/ubuntu/watchme-api-manager/.env \
+            754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager-scheduler:latest
+          
+          # ネットワーク接続の確認と再接続
+          docker network connect watchme-network watchme-scheduler-prod 2>/dev/null || true
+          
+          # 関連するコンテナもネットワークに接続確認
+          for container in api-transcriber api_gen_prompt_mood_chart api-gpt-v1 api_sed_v1-sed_api-1 api-sed-aggregator opensmile-api opensmile-aggregator vibe-transcriber-v2; do
+            docker network connect watchme-network $container 2>/dev/null || true
+          done
+          
+          # ヘルスチェック
+          sleep 10
+          curl -f http://localhost:8015/health || echo "Health check warning - service may still be starting"
+          
+          # ログ確認
+          docker logs --tail 20 watchme-scheduler-prod
+          
+          echo "Backend/Scheduler deployment completed successfully"
+        EOF
+        
+        # SSH鍵を削除
+        rm private_key.pem
