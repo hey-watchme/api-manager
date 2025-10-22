@@ -79,13 +79,13 @@ API_CONFIGS = {
     #     "type": "file_based"
     # },
     "vibe-aggregator": {
-        "endpoint": "http://api_gen_prompt_mood_chart:8009/generate-mood-prompt-supabase",
+        "endpoint": "http://vibe-analysis-aggregator:8009/generate-mood-prompt-supabase",
         "display_name": "Vibe Aggregator",
         "type": "device_based",
         "method": "GET"  # GETメソッドを使用
     },
     "vibe-scorer": {
-        "endpoint": "http://api-gpt-v1:8002/analyze-vibegraph-supabase",
+        "endpoint": "http://vibe-analysis-scorer:8002/analyze-vibegraph-supabase",
         "display_name": "Vibe Scorer",
         "type": "device_based"
     },
@@ -101,7 +101,7 @@ API_CONFIGS = {
     },
     "behavior-features": {
         # AST API（行動特徴抽出）のコンテナ名とポートを指定
-        "endpoint": "http://ast-api:8017/fetch-and-process-paths",
+        "endpoint": "http://behavior-analysis-feature-extractor-v2:8017/fetch-and-process-paths",
         # Supabaseで未処理ファイルを検索するためのカラム名
         "status_column": "behavior_features_status",
         "model": None, # このAPIにモデル指定が不要な場合はNone
@@ -110,7 +110,7 @@ API_CONFIGS = {
     },
     "emotion-features": {
         # SUPERB API（感情特徴抽出）のコンテナ名とポートを指定
-        "endpoint": "http://superb-api:8018/process/emotion-features",
+        "endpoint": "http://emotion-analysis-feature-extractor-v3:8018/process/emotion-features",
         # Supabaseで未処理ファイルを検索するためのカラム名
         "status_column": "emotion_features_status",
         "model": None, # このAPIにモデル指定が不要な場合はNone
@@ -119,7 +119,7 @@ API_CONFIGS = {
     },
     "azure-transcriber": {
         # Azure Speech Service APIのコンテナ名とポートを指定
-        "endpoint": "http://vibe-transcriber-v2:8013/fetch-and-transcribe",
+        "endpoint": "http://vibe-analysis-transcriber-v2:8013/fetch-and-transcribe",
         # Supabaseで未処理ファイルを検索するためのカラム名（Whisperと同じ）
         "status_column": "transcriptions_status",
         "model": "azure",  # Azureモデルを指定
@@ -130,20 +130,20 @@ API_CONFIGS = {
     },
     "timeblock-prompt": {
         # タイムブロック単位プロンプト生成API
-        "endpoint": "http://api_gen_prompt_mood_chart:8009/generate-timeblock-prompt",
+        "endpoint": "http://vibe-analysis-aggregator:8009/generate-timeblock-prompt",
         "display_name": "Timeblock Prompt Generator",
         "type": "timeblock_based",  # 新しいタイプ：未処理タイムブロック検出型
         "method": "GET",
         "timeout": 120,
         "status_tables": [  # STATUS管理対象テーブル
             "vibe_whisper",
-            "behavior_yamnet", 
+            "behavior_yamnet",
             "emotion_opensmile"
         ]
     },
     "timeblock-analysis": {
         # タイムブロック単位ChatGPT分析API
-        "endpoint": "http://api-gpt-v1:8002/analyze-timeblock",
+        "endpoint": "http://vibe-analysis-scorer:8002/analyze-timeblock",
         "display_name": "Timeblock ChatGPT Analysis",
         "type": "dashboard_based",  # dashboardテーブルのpendingステータスを処理
         "method": "POST",
@@ -153,14 +153,14 @@ API_CONFIGS = {
     },
     "dashboard-summary": {
         # ダッシュボードサマリー生成API（vibe-aggregatorと同じパターン）
-        "endpoint": "http://api_gen_prompt_mood_chart:8009/generate-dashboard-summary",
+        "endpoint": "http://vibe-analysis-aggregator:8009/generate-dashboard-summary",
         "display_name": "Dashboard Summary Generator",
         "type": "device_based",  # vibe-aggregatorと同じdevice_basedタイプ
         "method": "GET"  # vibe-aggregatorと同じGETメソッド
     },
     "dashboard-summary-analysis": {
         # Dashboard Summary ChatGPT分析API
-        "endpoint": "http://api-gpt-v1:8002/analyze-dashboard-summary",
+        "endpoint": "http://vibe-analysis-scorer:8002/analyze-dashboard-summary",
         "display_name": "Dashboard Summary ChatGPT Analysis",
         "type": "device_based",  # dashboard-summaryと同じdevice_basedタイプ
         "method": "POST",  # POSTメソッドを使用
