@@ -120,6 +120,8 @@ jobs:
           docker rm api-manager-frontend 2>/dev/null || true
           docker stop watchme-api-manager-prod 2>/dev/null || true
           docker rm watchme-api-manager-prod 2>/dev/null || true
+          docker stop watchme-scheduler-prod 2>/dev/null || true
+          docker rm watchme-scheduler-prod 2>/dev/null || true
 
           # Remove ALL old images to force fresh pull
           echo "🗑️ Removing ALL old api-manager images..."
