@@ -72,14 +72,18 @@ jobs:
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
+        VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        VITE_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       run: |
-        echo "🔨 Building Docker image with --no-cache..."
+        echo "🔨 Building Docker image with --no-cache and environment variables..."
 
-        # Build with no cache to ensure fresh build
+        # Build with no cache and pass environment variables
         docker buildx build \
           --platform linux/arm64 \
           --no-cache \
           --push \
+          --build-arg VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
+          --build-arg VITE_SUPABASE_KEY="$VITE_SUPABASE_KEY" \
           -f Dockerfile \
           -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG \
           -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest \

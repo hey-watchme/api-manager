@@ -16,6 +16,12 @@ COPY . .
 # 古いビルド成果物を削除（キャッシュ対策）
 RUN rm -rf dist/
 
+# ビルド時の環境変数を設定（ビルド引数として受け取る）
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_KEY
+ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+ENV VITE_SUPABASE_KEY=${VITE_SUPABASE_KEY}
+
 # 本番環境用ビルドを実行
 ENV NODE_ENV=production
 RUN npm run build
