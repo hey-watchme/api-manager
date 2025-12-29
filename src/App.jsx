@@ -68,7 +68,7 @@ function Navigation() {
   const location = useLocation()
   
   const navItems = [
-    { path: '/system-status', label: '📊 ダッシュボード', disabled: false },
+    { path: '/system-status', label: '📊 システムステータス', disabled: false },
     { path: '/prompt-generation', label: '📝 プロンプト生成', disabled: false },
     { path: '/vibe', label: '🧠 心理グラフ', disabled: false },
     { path: '/behavior', label: '🏃 行動グラフ', disabled: false },
