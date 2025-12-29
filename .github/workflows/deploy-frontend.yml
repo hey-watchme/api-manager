@@ -82,14 +82,17 @@ jobs:
           # ECRログイン
           aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com
 
-          # 最新イメージをプル
-          docker pull 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager:latest
-
           # 既存のコンテナを停止して削除（新旧両方）
           docker stop api-manager-frontend || true
           docker rm api-manager-frontend || true
           docker stop watchme-api-manager-prod || true
           docker rm watchme-api-manager-prod || true
+
+          # 古いイメージも削除（キャッシュ問題を防ぐ）
+          docker rmi 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager:latest || true
+
+          # 最新イメージをプル
+          docker pull 754724220380.dkr.ecr.ap-southeast-2.amazonaws.com/watchme-api-manager:latest
 
           # Docker networkが存在しない場合は作成
           docker network create watchme-network 2>/dev/null || true
