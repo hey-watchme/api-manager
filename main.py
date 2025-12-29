@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 import os
 import logging
 import httpx
+import boto3
 from datetime import datetime
 
 # ログ設定
@@ -218,9 +219,9 @@ async def process_files(request: ProcessRequest):
     """ファイル処理の実行（プロキシ）"""
     if request.api_name not in API_CONFIGS:
         raise HTTPException(status_code=404, detail="API not found")
-    
+
     config = API_CONFIGS[request.api_name]
-    
+
     try:
         # 対象APIに処理をリクエスト
         async with httpx.AsyncClient(timeout=300.0) as client:
@@ -231,7 +232,7 @@ async def process_files(request: ProcessRequest):
                     "options": request.options
                 }
             )
-            
+
             if response.status_code == 200:
                 return response.json()
             else:
@@ -239,12 +240,84 @@ async def process_files(request: ProcessRequest):
                     status_code=response.status_code,
                     detail=f"API処理エラー: {response.text}"
                 )
-    
+
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="処理タイムアウト")
     except Exception as e:
         logger.error(f"処理エラー: {str(e)}")
         raise HTTPException(status_code=500, detail=f"処理エラー: {str(e)}")
+
+@app.get("/api/sqs/status")
+async def get_sqs_status():
+    """SQS queue status monitoring"""
+    try:
+        sqs_client = boto3.client('sqs', region_name='ap-southeast-2')
+
+        # Queue URLs
+        queues = {
+            'asr': 'https://sqs.ap-southeast-2.amazonaws.com/754724220380/watchme-asr-queue-v2.fifo',
+            'sed': 'https://sqs.ap-southeast-2.amazonaws.com/754724220380/watchme-sed-queue-v2.fifo',
+            'ser': 'https://sqs.ap-southeast-2.amazonaws.com/754724220380/watchme-ser-queue-v2.fifo',
+        }
+
+        dlqs = {
+            'asr-dlq': 'https://sqs.ap-southeast-2.amazonaws.com/754724220380/watchme-asr-dlq-v2.fifo',
+            'sed-dlq': 'https://sqs.ap-southeast-2.amazonaws.com/754724220380/watchme-sed-dlq-v2.fifo',
+            'ser-dlq': 'https://sqs.ap-southeast-2.amazonaws.com/754724220380/watchme-ser-dlq-v2.fifo',
+        }
+
+        dashboard_queues = {
+            'summary': 'https://sqs.ap-southeast-2.amazonaws.com/754724220380/watchme-dashboard-summary-queue',
+            'analysis': 'https://sqs.ap-southeast-2.amazonaws.com/754724220380/watchme-dashboard-analysis-queue',
+        }
+
+        # Get queue attributes
+        queue_status = []
+        for name, url in queues.items():
+            attrs = sqs_client.get_queue_attributes(
+                QueueUrl=url,
+                AttributeNames=['ApproximateNumberOfMessages', 'ApproximateNumberOfMessagesNotVisible']
+            )
+            queue_status.append({
+                'name': name.upper(),
+                'available': int(attrs['Attributes'].get('ApproximateNumberOfMessages', 0)),
+                'inflight': int(attrs['Attributes'].get('ApproximateNumberOfMessagesNotVisible', 0))
+            })
+
+        # Get DLQ attributes
+        dlq_status = []
+        for name, url in dlqs.items():
+            attrs = sqs_client.get_queue_attributes(
+                QueueUrl=url,
+                AttributeNames=['ApproximateNumberOfMessages']
+            )
+            dlq_status.append({
+                'name': name.upper(),
+                'messages': int(attrs['Attributes'].get('ApproximateNumberOfMessages', 0))
+            })
+
+        # Get dashboard queue attributes
+        dashboard_status = {}
+        for name, url in dashboard_queues.items():
+            attrs = sqs_client.get_queue_attributes(
+                QueueUrl=url,
+                AttributeNames=['ApproximateNumberOfMessages', 'ApproximateNumberOfMessagesNotVisible']
+            )
+            dashboard_status[name] = {
+                'available': int(attrs['Attributes'].get('ApproximateNumberOfMessages', 0)),
+                'inflight': int(attrs['Attributes'].get('ApproximateNumberOfMessagesNotVisible', 0))
+            }
+
+        return {
+            'queues': queue_status,
+            'dlqs': dlq_status,
+            'dashboard_queue': dashboard_status,
+            'timestamp': datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"SQS status error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"SQS status fetch failed: {str(e)}")
 
 # Reactアプリケーションのフォールバック
 @app.get("/{full_path:path}")
