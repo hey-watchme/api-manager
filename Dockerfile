@@ -13,7 +13,8 @@ RUN npm ci
 # アプリケーションのソースコードをコピー
 COPY . .
 
-# ビルドを実行
+# 本番環境用ビルドを実行
+ENV NODE_ENV=production
 RUN npm run build
 
 # ポート9001を公開
