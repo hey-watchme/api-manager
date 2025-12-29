@@ -13,6 +13,9 @@ RUN npm ci
 # アプリケーションのソースコードをコピー
 COPY . .
 
+# 古いビルド成果物を削除（キャッシュ対策）
+RUN rm -rf dist/
+
 # 本番環境用ビルドを実行
 ENV NODE_ENV=production
 RUN npm run build

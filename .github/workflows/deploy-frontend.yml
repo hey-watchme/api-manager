@@ -47,13 +47,26 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Delete old images from ECR (cleanup)
+    - name: Delete ALL images from ECR (complete cleanup)
       run: |
-        echo "🧹 Cleaning up old images in ECR..."
-        aws ecr batch-delete-image \
+        echo "🧹 Deleting ALL images in ECR for fresh start..."
+        # Get all image IDs
+        IMAGE_IDS=$(aws ecr list-images \
           --region ${{ env.AWS_REGION }} \
           --repository-name ${{ env.ECR_REPOSITORY }} \
-          --image-ids imageTag=latest || true
+          --query 'imageIds[*]' \
+          --output json)
+
+        # Delete all images if any exist
+        if [ "$IMAGE_IDS" != "[]" ]; then
+          echo "Deleting $(echo $IMAGE_IDS | jq length) images..."
+          aws ecr batch-delete-image \
+            --region ${{ env.AWS_REGION }} \
+            --repository-name ${{ env.ECR_REPOSITORY }} \
+            --image-ids "$IMAGE_IDS" || true
+        else
+          echo "No images to delete"
+        fi
 
     - name: Build, tag, and push image to Amazon ECR
       env:
