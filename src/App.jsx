@@ -8,7 +8,6 @@ import BehaviorAggregatorModule from './modules/behavior/aggregator/BehaviorAggr
 import EmotionPage from './pages/EmotionPage'
 import AudioFilesPage from './pages/AudioFilesPage'
 import DashboardPage from './pages/DashboardPage'
-import SystemStatusPage from './pages/SystemStatusPage'
 
 // ページコンポーネント
 function PsychologyPage() {
@@ -68,12 +67,11 @@ function Navigation() {
   const location = useLocation()
   
   const navItems = [
-    { path: '/system-status', label: '📊 システムステータス', disabled: false },
+    { path: '/audio', label: '🎵 オーディオファイル', disabled: false },
     { path: '/prompt-generation', label: '📝 プロンプト生成', disabled: false },
     { path: '/vibe', label: '🧠 心理グラフ', disabled: false },
     { path: '/behavior', label: '🏃 行動グラフ', disabled: false },
-    { path: '/emotion', label: '😊 感情グラフ', disabled: false },
-    { path: '/audio', label: '🎵 オーディオファイル', disabled: false }
+    { path: '/emotion', label: '😊 感情グラフ', disabled: false }
   ]
 
   return (
@@ -123,8 +121,7 @@ function AppContent() {
         <Navigation />
         
         <Routes>
-          <Route path="/" element={<Navigate to="/system-status" replace />} />
-          <Route path="/system-status" element={<SystemStatusPage />} />
+          <Route path="/" element={<Navigate to="/audio" replace />} />
           <Route path="/prompt-generation" element={<DashboardPage />} />
           <Route path="/vibe" element={<PsychologyPage />} />
           <Route path="/behavior" element={<BehaviorPage />} />
