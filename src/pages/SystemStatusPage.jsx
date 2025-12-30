@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Card from '../components/common/Card'
+import { supabase } from '../services/supabase'
 
 function SystemStatusPage() {
   const [sqsStatus, setSqsStatus] = useState(null)
@@ -12,13 +13,12 @@ function SystemStatusPage() {
     setError(null)
 
     try {
-      const response = await fetch('/api/sqs/status')
+      const { data, error: functionError } = await supabase.functions.invoke('sqs-status')
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      if (functionError) {
+        throw new Error(functionError.message || 'SQS status fetch failed')
       }
 
-      const data = await response.json()
       setSqsStatus(data)
       setLastUpdated(new Date())
     } catch (err) {
