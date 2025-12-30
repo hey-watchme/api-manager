@@ -30,6 +30,74 @@ API Managerは、各種マイクロサービス（音声解析・感情分析・
 
 ---
 
+## 🔍 SQS監視
+
+AWS SQSキューの状態を確認するスクリプトを用意しています。
+
+### 使い方
+
+```bash
+# SQSキューの状態を確認
+./scripts/monitor-sqs.sh
+```
+
+### 出力例
+
+```
+🔍 WatchMe SQS Queue Monitor
+==============================
+
+📬 メインキュー（FIFO）
+----------------------
+Queue: watchme-asr-queue-v2.fifo
+  Available: 0  InFlight: 0
+
+Queue: watchme-sed-queue-v2.fifo
+  Available: 0  InFlight: 1
+
+Queue: watchme-ser-queue-v2.fifo
+  Available: 0  InFlight: 1
+
+☠️  デッドレターキュー（DLQ）
+----------------------------
+⚠️  watchme-asr-dlq-v2.fifo: 13 messages (要確認)
+⚠️  watchme-sed-dlq-v2.fifo: 48 messages (要確認)
+⚠️  watchme-ser-dlq-v2.fifo: 48 messages (要確認)
+
+📋 ダッシュボードキュー
+----------------------
+Queue: watchme-dashboard-summary-queue
+  Available: 0  InFlight: 0
+
+Queue: watchme-dashboard-analysis-queue
+  Available: 0  InFlight: 0
+```
+
+### 状態の見方
+
+| 項目 | 意味 | 正常値 |
+|------|------|--------|
+| **Available** | キューに待機中のメッセージ数 | 0（処理済み） |
+| **InFlight** | Lambda Workerが現在処理中のメッセージ数 | 0-3（処理中） |
+| **DLQ Messages** | 3回リトライ後に失敗したメッセージ数 | 0（エラーなし） |
+
+**⚠️ 異常時の対処**:
+- DLQにメッセージがある場合 → CloudWatch Logsで原因調査が必要
+- Availableが常に増え続ける場合 → Lambda関数が停止している可能性
+
+### エイリアス設定（推奨）
+
+```bash
+# ~/.zshrc に追加
+echo "alias sqs-status='/Users/kaya.matsumoto/projects/watchme/api/api-manager/scripts/monitor-sqs.sh'" >> ~/.zshrc
+source ~/.zshrc
+
+# その後は以下だけでOK
+sqs-status
+```
+
+---
+
 ## 🔄 API構成
 
 ### マイクロサービス一覧
